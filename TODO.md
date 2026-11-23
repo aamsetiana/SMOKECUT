@@ -13,7 +13,7 @@ Metodologi: **Iteratif Bertahap & Berbasis Pengujian (TDD & Verifikasi Bertingka
 | **Fase 1** | Inisialisasi & Struktur Dasar | `done` | 6 | 6 |
 | **Fase 2** | Core Backend & Logika Computer Vision | `done` | 8 | 8 |
 | **Fase 3** | Antarmuka / Frontend Dashboard | `pending` | 7 | 0 |
-| **Fase 4** | Integrasi Sistem & Pengujian MVP | `pending` | 6 | 0 |
+| **Fase 4** | Integrasi Sistem & Pengujian MVP | `in_progress` | 6 | 1 |
 | **Fase 5** | Aset Presentasi & Finalisasi AIRIMPACT 2026 | `pending` | 5 | 0 |
 
 ---
@@ -89,7 +89,7 @@ Metodologi: **Iteratif Bertahap & Berbasis Pengujian (TDD & Verifikasi Bertingka
 ### Fase 4: Integrasi Sistem & Pengujian MVP
 - [ ] 4.1 `[@Aam]` Uji alur kerja *end-to-end* (Upload Foto/Video → Proses VARI & Jalur Sekat → Render Hasil di Dashboard → Kirim Notifikasi WhatsApp).
 - [ ] 4.2 `[@Aam]` Lakukan verifikasi mode offline (memastikan seluruh inferensi dan visualisasi dapat berjalan tanpa akses internet di laptop lapangan).
-- [ ] 4.3 `[@Apliy]` Jalankan suite pengujian otomatis (`pytest backend/tests/ -v`) dan pastikan 100% lulus (*all tests passing*).
+- [x] 4.3 `[@Apliy]` Jalankan suite pengujian otomatis (`pytest backend/tests/ -v`) dan pastikan 100% lulus (*all tests passing*).
 - [ ] 4.4 `[@Indra]` & `[@Apliy]` Optimasi performa: pastikan kalkulasi VARI dan rendering canvas responsif (< 2 detik untuk citra resolusi drone standar).
 - [ ] 4.5 `[@Aam]` Siapkan panduan eksekusi cepat (*Quick Start Guide*) dan dokumentasi skenario pengujian di `README.md`.
 - [ ] 4.6 `[@Aam]` Buat checkpoint git commit untuk MVP yang stabil dan berfungsi penuh.
