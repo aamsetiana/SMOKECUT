@@ -129,3 +129,39 @@ def test_upload_and_analyze_video_endpoint():
     assert analyze_data["summary"]["cutting_length_meters"] > 0
     assert "frame.jpg" in analyze_data["layers"]["original_image_url"]
 
+
+def test_analyze_auto_wind_endpoint():
+    """Test POST /api/analyze when wind direction/speed are omitted (auto AI estimation)."""
+    payload = {
+        "image_id": "sample",
+    }
+    response = client.post("/api/analyze", json=payload)
+    assert response.status_code == 200
+    data = response.json()
+
+    assert data["status"] == "success"
+    assert "wind_estimation" in data
+    assert data["wind_estimation"] is not None
+    assert data["wind_estimation"]["is_auto_detected"] is True
+    assert "direction_degrees" in data["wind_estimation"]
+    assert "speed_kmh" in data["wind_estimation"]
+    assert data["firebreak_plan"]["wind"]["is_auto_detected"] is True
+    assert "estimasi_angin" in data["summary"]["penjelasan_lapangan"]
+    assert data["summary"]["cutting_length_meters"] > 0
+
+
+def test_analyze_explicit_auto_wind_endpoint():
+    """Test POST /api/analyze with explicit 'auto' wind_direction."""
+    payload = {
+        "image_id": "sample",
+        "wind_direction": "auto",
+        "wind_speed": None,
+    }
+    response = client.post("/api/analyze", json=payload)
+    assert response.status_code == 200
+    data = response.json()
+
+    assert data["status"] == "success"
+    assert data["wind_estimation"] is not None
+    assert data["wind_estimation"]["is_auto_detected"] is True
+

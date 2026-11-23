@@ -23,8 +23,8 @@ ALLOWED_VIDEO_EXTENSIONS = {".mp4", ".mov", ".avi"}
 
 class AnalyzeRequest(BaseModel):
     image_id: str = Field(..., description="Unique ID of previously uploaded image or 'sample'")
-    wind_direction: Union[str, float] = Field(default=135.0, description="Wind direction in degrees (0-360) or compass string (e.g. 'SE', 'Tenggara')")
-    wind_speed: float = Field(default=14.0, description="Wind velocity in km/h")
+    wind_direction: Optional[Union[str, float]] = Field(default=None, description="Wind direction in degrees (0-360), compass string, or None/'auto' for automatic visual detection")
+    wind_speed: Optional[float] = Field(default=None, description="Wind velocity in km/h or None for automatic visual estimation")
     safety_buffer: float = Field(default=25.0, description="Base safety buffer in meters for MPA crew")
     firebreak_width: float = Field(default=4.0, description="Recommended firebreak cutting width in meters (3 - 5m)")
 
@@ -167,16 +167,41 @@ async def analyze_aerial_image(request: AnalyzeRequest):
     # 2. Smoke & Hotspot Detection
     fire_res = fire_detector.detect(analysis_image_path, image_id=image_id)
 
+    # Resolve Wind Parameters (Auto-detection via Vision if unknown or not specified)
+    from backend.app.services.weather_service import estimate_wind_from_vision
+
+    wind_dir = request.wind_direction
+    wind_spd = request.wind_speed
+    wind_estimation = None
+
+    is_dir_auto = (
+        wind_dir is None
+        or str(wind_dir).strip().upper() in ("AUTO", "UNKNOWN", "NONE", "")
+    )
+    is_spd_auto = wind_spd is None or wind_spd <= 0
+
+    if is_dir_auto or is_spd_auto:
+        wind_est = estimate_wind_from_vision(
+            detections=fire_res["detections"],
+            dry_mask=vari_res["dry_mask"],
+        )
+        if is_dir_auto:
+            wind_dir = wind_est["direction_degrees"]
+        if is_spd_auto:
+            wind_spd = wind_est["speed_kmh"]
+        wind_estimation = wind_est
+
     # 3. Firebreak Route Optimizer
     firebreak_res = firebreak_optimizer.optimize(
         image_dimensions=dimensions,
         dry_mask=vari_res["dry_mask"],
         hotspots=fire_res["detections"],
-        wind_direction=request.wind_direction,
-        wind_speed_kmh=request.wind_speed,
+        wind_direction=wind_dir,
+        wind_speed_kmh=wind_spd,
         safety_buffer_meters=request.safety_buffer,
         firebreak_width_meters=request.firebreak_width,
         image_id=image_id,
+        is_auto_wind=bool(wind_estimation is not None),
     )
 
     # Prepare preview URL for base original image/frame and dynamic video
@@ -222,6 +247,11 @@ async def analyze_aerial_image(request: AnalyzeRequest):
             "penjelasan_lapangan": {
                 "kondisi_semak": f"{vari_res['statistics']['dry_fuel_percentage']}% semak kering mudah terbakar",
                 "deteksi_bahaya": f"{fire_res['hotspot_count']} titik api dan {fire_res['smoke_count']} kepulan asap",
+                "estimasi_angin": (
+                    wind_estimation["keterangan"]
+                    if wind_estimation
+                    else f"Angin berembus dari arah {firebreak_res['wind_parameters']['direction_compass']} ({firebreak_res['wind_parameters']['speed_kmh']} km/jam)"
+                ),
                 "instruksi_babat": f"Babat semak selebar {firebreak_res['metrics']['recommended_width_meters']}m sepanjang {firebreak_res['metrics']['cutting_length_meters']}m untuk memutus rambatan api",
                 "jarak_aman": f"Tim relawan wajib berjarak minimal {firebreak_res['metrics']['effective_safety_buffer_meters']}m dari arah api",
             },
@@ -242,11 +272,13 @@ async def analyze_aerial_image(request: AnalyzeRequest):
         },
         "vari_analysis": vari_res["statistics"],
         "detections": fire_res["detections"],
+        "wind_estimation": wind_estimation,
         "firebreak_plan": {
             "trajectory": firebreak_res["trajectory"],
             "metrics": firebreak_res["metrics"],
             "gps_coordinates": firebreak_res["gps_coordinates"],
             "wind": firebreak_res["wind_parameters"],
+            "wind_estimation": wind_estimation,
         },
         "dimensions": dimensions,
     }
