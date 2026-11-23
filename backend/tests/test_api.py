@@ -86,7 +86,7 @@ def test_dispatch_whatsapp_endpoint():
     mpa_msg = dispatches[0]
     assert mpa_msg["recipient_group"] == "Tim MPA / BPBD"
     assert "wa.me" in mpa_msg["deep_link"]
-    assert "SEKAT-AI ALERT" in mpa_msg["message_text"]
+    assert "SMOKECUT ALERT" in mpa_msg["message_text"]
 
     # Verify Downwind residents message
     downwind_msg = dispatches[1]

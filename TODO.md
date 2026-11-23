@@ -1,6 +1,6 @@
-# TODO.md — Roadmap Eksekusi & Papan Tugas Proyek SEKAT-AI
+# TODO.md — Roadmap Eksekusi & Papan Tugas Proyek SMOKECUT
 
-Proyek: **SEKAT-AI (Smart Drone-Vision untuk Mitigasi Sekat Bakar & Pencegahan Asap PM2.5)**  
+Proyek: **SMOKECUT (Smart Drone-Vision untuk Mitigasi Sekat Bakar & Pencegahan Asap PM2.5)**  
 Kompetisi: **AIRIMPACT 2026 (MarkPlus, Inc.)**  
 Metodologi: **Iteratif Bertahap & Berbasis Pengujian (TDD & Verifikasi Bertingkat)**
 

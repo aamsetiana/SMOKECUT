@@ -1,4 +1,4 @@
-# SEKAT-AI API Contract Documentation
+# SMOKECUT API Contract Documentation
 
 **Status**: RESMI & AKTIF (Implementasi Fase 2)  
 **Lead Architect**: @Aam  

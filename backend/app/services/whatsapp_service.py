@@ -1,4 +1,4 @@
-"""WhatsApp Notification and Alert Dispatcher Service for SEKAT-AI.
+"""WhatsApp Notification and Alert Dispatcher Service for SMOKECUT.
 
 Generates structured tactical dispatch messages for:
 1. MPA / BPBD Ground Crews: Cutting length, firebreak width, GPS navigation points, and biomass circularity.
@@ -35,7 +35,7 @@ class WhatsAppNotificationService:
         hotspot_count = summary.get("hotspots_detected", 0)
 
         message_text = (
-            "🚨 *[SEKAT-AI ALERT] INSTRUKSI TAKTIS SEKAT BAKAR PREVENTIF*\n"
+            "🚨 *[SMOKECUT ALERT] INSTRUKSI TAKTIS SEKAT BAKAR PREVENTIF*\n"
             f"Status Lapangan: *RISIKO {risk_level}* ({hotspot_count} titik api/asap terdeteksi)\n\n"
             "📋 *Spesifikasi Pembabatan Jalur Sekat Bakar:*\n"
             f"• Estimasi Panjang Jalur: *{length_m} Meter*\n"
@@ -70,7 +70,7 @@ class WhatsAppNotificationService:
         wind_speed = wind.get("speed_kmh", 14.0)
 
         message_text = (
-            "⚠️ *[PERINGATAN DINI KUALITAS UDARA SEKAT-AI]*\n"
+            "⚠️ *[PERINGATAN DINI KUALITAS UDARA SMOKECUT]*\n"
             "Waspada Dispersi Asap & Partikulat Halus PM2.5\n\n"
             "💨 *Kondisi Angin & Jalur Asap:*\n"
             f"• Arah Embusan Angin: Menuju ke permukiman dari arah {wind_compass}\n"

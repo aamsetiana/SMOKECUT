@@ -20,11 +20,11 @@ export default function App() {
       <header className="border-b border-slate-800 bg-[#0F172A]/90 backdrop-blur sticky top-0 z-50 px-6 py-3.5 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="h-9 w-9 rounded-lg bg-sky-500/10 border border-sky-500/30 flex items-center justify-center font-bold text-sky-400">
-            S-AI
+            SC
           </div>
           <div>
             <h1 className="font-bold text-lg tracking-wide text-white flex items-center gap-2">
-              SEKAT-AI
+              SMOKECUT
               <span className="text-xs px-2 py-0.5 rounded-full bg-sky-500/10 text-sky-400 border border-sky-500/30 font-medium">
                 AIRIMPACT 2026
               </span>
@@ -123,7 +123,7 @@ export default function App() {
 
       {/* Footer */}
       <footer className="border-t border-slate-800 bg-[#0F172A] px-6 py-3 text-xs text-slate-500 flex justify-between items-center">
-        <span>SEKAT-AI — Cegah Api Melebar, Jaga Napas Warga.</span>
+        <span>SMOKECUT — Cegah Api Melebar, Jaga Napas Warga.</span>
         <span>Kompetisi AIRIMPACT 2026 (MarkPlus, Inc.)</span>
       </footer>
     </div>

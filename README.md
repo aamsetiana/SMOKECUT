@@ -1,4 +1,4 @@
-# SEKAT-AI 🛰️🔥
+# SMOKECUT 🛰️🔥
 > **Smart Drone-Vision untuk Mitigasi Sekat Bakar & Pencegahan Asap PM2.5**  
 > *Tagline: "Cegah Api Melebar, Jaga Napas Warga"*  
 > **Kompetisi**: AIRIMPACT 2026 (MarkPlus, Inc.)
@@ -7,14 +7,14 @@
 
 ## 📌 Ringkasan Solusi
 
-**SEKAT-AI** adalah perangkat lunak murni (*pure software*, *drone-agnostic*) berbasis Computer Vision yang mengolah citra dan video udara dari drone kamera RGB standar tanpa memerlukan sensor thermal mahal. Sistem bekerja secara lokal/offline di laptop lapangan maupun cloud dengan alur **Record → Upload → Process → Action**.
+**SMOKECUT** adalah perangkat lunak murni (*pure software*, *drone-agnostic*) berbasis Computer Vision yang mengolah citra dan video udara dari drone kamera RGB standar tanpa memerlukan sensor thermal mahal. Sistem bekerja secara lokal/offline di laptop lapangan maupun cloud dengan alur **Record → Upload → Process → Action**.
 
 ```
 [Drone RGB Standar (60-100m)]
            │ (File Video .mp4 / Foto .jpg)
            ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│                    SEKAT-AI Core Engine (FastAPI)               │
+│                    SMOKECUT Core Engine (FastAPI)               │
 │                                                                 │
 │  1. Layer Deteksi Dini: YOLOv8 / CV Heuristik (Asap & Api)      │
 │  2. Layer Indeks Vegetasi: VARI = (G - R) / (G + R - B)         │
@@ -58,8 +58,8 @@
 
 ### 1. Kloning Repositori
 ```bash
-git clone https://github.com/aamsetiana/SEKAT-AI.git
-cd SEKAT-AI
+git clone https://github.com/aamsetiana/SMOKECUT.git
+cd SMOKECUT
 ```
 
 ### 2. Setup & Jalankan Backend (FastAPI)

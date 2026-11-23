@@ -15,7 +15,7 @@ from backend.app.core.config import (
 
 
 def test_config_constants():
-    assert "SEKAT-AI" in APP_NAME
+    assert "SMOKECUT" in APP_NAME
     assert APP_VERSION == "1.0.0"
     assert VARI_DRY_THRESHOLD == 0.1
     assert 3.0 <= DEFAULT_FIREBREAK_WIDTH_METERS <= 5.0

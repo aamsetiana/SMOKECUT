@@ -1,6 +1,6 @@
-# AGENTS.md — Pedoman Teknis & Aturan Pengembang SEKAT-AI
+# AGENTS.md — Pedoman Teknis & Aturan Pengembang SMOKECUT
 
-Selamat datang di proyek **SEKAT-AI** (*Smart Drone-Vision untuk Mitigasi Sekat Bakar & Pencegahan Asap PM2.5*). Dokumen ini berfungsi sebagai panduan standar arsitektur, konvensi teknis, dan aturan kerja mutlak bagi seluruh agen pengembang otonom dan tim rekayasa perangkat lunak.
+Selamat datang di proyek **SMOKECUT** (*Smart Drone-Vision untuk Mitigasi Sekat Bakar & Pencegahan Asap PM2.5*). Dokumen ini berfungsi sebagai panduan standar arsitektur, konvensi teknis, dan aturan kerja mutlak bagi seluruh agen pengembang otonom dan tim rekayasa perangkat lunak.
 
 ---
 

@@ -19,11 +19,11 @@ SAMPLES_DIR.mkdir(parents=True, exist_ok=True)
 MODELS_DIR.mkdir(parents=True, exist_ok=True)
 
 # Application Metadata
-APP_NAME = "SEKAT-AI Core Engine"
+APP_NAME = "SMOKECUT Core Engine"
 APP_VERSION = "1.0.0"
 APP_DESCRIPTION = (
     "Smart Drone-Vision untuk Mitigasi Sekat Bakar & Pencegahan Asap PM2.5 "
-    "- Solusi Pure Software Drone-Agnostic untuk AIRIMPACT 2026."
+    "- Solusi Pure Software Drone-Agnostic SMOKECUT untuk AIRIMPACT 2026."
 )
 
 # Server Settings
