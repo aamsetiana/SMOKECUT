@@ -11,7 +11,7 @@ Metodologi: **Iteratif Bertahap & Berbasis Pengujian (TDD & Verifikasi Bertingka
 | Fase | Deskripsi | Status | Total Tugas | Selesai |
 |---|---|---|---|---|
 | **Fase 1** | Inisialisasi & Struktur Dasar | `done` | 6 | 6 |
-| **Fase 2** | Core Backend & Logika Computer Vision | `pending` | 8 | 0 |
+| **Fase 2** | Core Backend & Logika Computer Vision | `done` | 8 | 8 |
 | **Fase 3** | Antarmuka / Frontend Dashboard | `pending` | 7 | 0 |
 | **Fase 4** | Integrasi Sistem & Pengujian MVP | `pending` | 6 | 0 |
 | **Fase 5** | Aset Presentasi & Finalisasi AIRIMPACT 2026 | `pending` | 5 | 0 |
@@ -50,10 +50,10 @@ Metodologi: **Iteratif Bertahap & Berbasis Pengujian (TDD & Verifikasi Bertingka
 - [x] 2.6 Implementasi service simulasi data angin & cuaca (`backend/app/services/weather_service.py`):
   - Dukungan parameter manual (kecepatan & arah mata angin) untuk mode patroli lapangan offline.
   - Mock generator data arah angin realistis.
-- [ ] 2.7 Implementasi WhatsApp Alert Dispatcher (`backend/app/services/notification_service.py`):
+- [x] 2.7 Implementasi WhatsApp Alert Dispatcher (`backend/app/services/notification_service.py`):
   - Generator pesan untuk Tim MPA: ringkasan status risiko, panjang jalur babat (meter), koordinat GPS, dan tautan peta visual.
   - Generator pesan peringatan dini untuk Warga Downwind (zona arah angin): rekomendasi tutup jendela, pemakaian masker, perlindungan kelompok rentan.
-- [ ] 2.8 Bangun REST API endpoints (`backend/app/api/routes.py`):
+- [x] 2.8 Bangun REST API endpoints (`backend/app/api/routes.py`):
   - `POST /api/upload`: Unggah file citra (.jpg) atau video (.mp4).
   - `POST /api/analyze`: Memicu analisis 3-layer (VARI, Asap/Api, Rekomendasi Jalur Sekat Bakar).
   - `POST /api/dispatch-whatsapp`: Memicu pengiriman notifikasi peringatan ke MPA dan warga.

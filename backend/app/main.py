@@ -13,6 +13,7 @@ from backend.app.core.config import (
     OUTPUT_DIR,
     UPLOADS_DIR,
 )
+from backend.app.api.routes import router as api_router
 
 app = FastAPI(
     title=APP_NAME,
@@ -30,6 +31,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Mount API routes
+app.include_router(api_router)
 
 # Serve generated outputs and uploads as static assets
 app.mount("/static/output", StaticFiles(directory=str(OUTPUT_DIR)), name="output")
