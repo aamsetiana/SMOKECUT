@@ -93,3 +93,39 @@ def test_dispatch_whatsapp_endpoint():
     assert "Downwind" in downwind_msg["recipient_group"]
     assert "wa.me" in downwind_msg["deep_link"]
     assert "PM2.5" in downwind_msg["message_text"]
+
+
+def test_upload_and_analyze_video_endpoint():
+    """Test uploading an MP4 drone video and running full 3-layer analysis on its keyframe."""
+    video_path = "samples/sample_drone_fire.mp4"
+    with open(video_path, "rb") as f:
+        res_upload = client.post(
+            "/api/upload",
+            files={"file": ("sample_drone_fire.mp4", f, "video/mp4")},
+        )
+
+    assert res_upload.status_code == 200
+    upload_data = res_upload.json()
+    assert upload_data["status"] == "success"
+    assert upload_data["media_type"] == "video"
+    image_id = upload_data["image_id"]
+
+    # Trigger analysis on the uploaded video
+    payload = {
+        "image_id": image_id,
+        "wind_direction": 135.0,
+        "wind_speed": 14.0,
+        "safety_buffer": 25.0,
+        "firebreak_width": 4.0,
+    }
+    res_analyze = client.post("/api/analyze", json=payload)
+    assert res_analyze.status_code == 200
+    analyze_data = res_analyze.json()
+
+    assert analyze_data["status"] == "success"
+    assert "vari_analysis" in analyze_data
+    assert "detections" in analyze_data
+    assert "firebreak_plan" in analyze_data
+    assert analyze_data["summary"]["cutting_length_meters"] > 0
+    assert "frame.jpg" in analyze_data["layers"]["original_image_url"]
+

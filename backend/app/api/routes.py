@@ -55,10 +55,35 @@ async def upload_media(file: UploadFile = File(...)):
         shutil.copyfileobj(file.file, buffer)
 
     width, height = 800, 600
+    media_type = "image"
+    preview_url = f"/static/uploads/{saved_filename}"
+
     if ext in ALLOWED_IMAGE_EXTENSIONS:
         try:
             with Image.open(dest_path) as img:
                 width, height = img.size
+        except Exception:
+            pass
+    elif ext in ALLOWED_VIDEO_EXTENSIONS:
+        media_type = "video"
+        try:
+            import cv2
+            cap = cv2.VideoCapture(str(dest_path))
+            if cap.isOpened():
+                total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+                fps = cap.get(cv2.CAP_PROP_FPS) or 25
+                target_frame = min(int(fps * 1.0), max(0, total_frames - 1))
+                cap.set(cv2.CAP_PROP_POS_FRAMES, target_frame)
+                ret, frame = cap.read()
+                if not ret:
+                    cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
+                    ret, frame = cap.read()
+                if ret:
+                    height, width = frame.shape[:2]
+                    frame_filename = f"{image_id}_frame.jpg"
+                    cv2.imwrite(str(UPLOADS_DIR / frame_filename), frame)
+                    preview_url = f"/static/uploads/{frame_filename}"
+            cap.release()
         except Exception:
             pass
 
@@ -67,8 +92,8 @@ async def upload_media(file: UploadFile = File(...)):
         "image_id": image_id,
         "filename": filename,
         "saved_as": saved_filename,
-        "preview_url": f"/static/uploads/{saved_filename}",
-        "media_type": "video" if ext in ALLOWED_VIDEO_EXTENSIONS else "image",
+        "preview_url": preview_url,
+        "media_type": media_type,
         "dimensions": {"width": width, "height": height},
     }
 
@@ -84,8 +109,13 @@ async def analyze_aerial_image(request: AnalyzeRequest):
     image_id = request.image_id
     target_path = None
 
-    # Check for specific uploaded file
-    if image_id != "sample":
+    # Check for specific uploaded file or sample shortcuts
+    if image_id == "sample_video":
+        sample_vid = SAMPLES_DIR / "sample_drone_fire.mp4"
+        if sample_vid.exists():
+            target_path = sample_vid
+            image_id = "sample_drone_fire"
+    elif image_id != "sample":
         matching = list(UPLOADS_DIR.glob(f"{image_id}.*"))
         if matching:
             target_path = matching[0]
@@ -99,12 +129,30 @@ async def analyze_aerial_image(request: AnalyzeRequest):
         else:
             raise HTTPException(status_code=404, detail="File citra tidak ditemukan.")
 
+    # Determine analysis frame source (if video, use extracted keyframe)
+    analysis_image_path = target_path
+    if target_path.suffix.lower() in ALLOWED_VIDEO_EXTENSIONS:
+        extracted = UPLOADS_DIR / f"{image_id}_frame.jpg"
+        if not extracted.exists():
+            try:
+                import cv2
+                cap = cv2.VideoCapture(str(target_path))
+                if cap.isOpened():
+                    ret, frame = cap.read()
+                    if ret:
+                        cv2.imwrite(str(extracted), frame)
+                    cap.release()
+            except Exception:
+                pass
+        if extracted.exists():
+            analysis_image_path = extracted
+
     # 1. VARI Flammability Fuel Mapping
-    vari_res = vari_analyzer.analyze_image(target_path, image_id=image_id)
+    vari_res = vari_analyzer.analyze_image(analysis_image_path, image_id=image_id)
     dimensions = vari_res["dimensions"]
 
     # 2. Smoke & Hotspot Detection
-    fire_res = fire_detector.detect(target_path, image_id=image_id)
+    fire_res = fire_detector.detect(analysis_image_path, image_id=image_id)
 
     # 3. Firebreak Route Optimizer
     firebreak_res = firebreak_optimizer.optimize(
@@ -118,8 +166,10 @@ async def analyze_aerial_image(request: AnalyzeRequest):
         image_id=image_id,
     )
 
-    # Prepare preview URL for base original image
-    if target_path == SAMPLES_DIR / "sample_aerial.jpg":
+    # Prepare preview URL for base original image/frame
+    if target_path.suffix.lower() in ALLOWED_VIDEO_EXTENSIONS:
+        original_url = f"/static/uploads/{image_id}_frame.jpg"
+    elif target_path == SAMPLES_DIR / "sample_aerial.jpg":
         # Copy to output/uploads directory so it's accessible via HTTP static
         static_sample = UPLOADS_DIR / "sample_aerial.jpg"
         if not static_sample.exists():
