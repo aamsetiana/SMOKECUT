@@ -80,6 +80,7 @@ runs/
 # Exclude raw sample video/images except lightweight test fixtures
 !tests/fixtures/*
 !samples/demo.*
+!samples/sample_drone_fire.mp4
 
 # IDE & Editor settings
 .vscode/
