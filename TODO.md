@@ -22,7 +22,7 @@ Metodologi: **Iteratif Bertahap & Berbasis Pengujian (TDD & Verifikasi Bertingka
 
 ### Fase 1: Inisialisasi & Struktur Dasar Proyek
 - [x] 1.1 Siapkan struktur direktori modular (`backend/app/{api,core,cv,services}`, `backend/tests`, `frontend/src/{components,services}`, `samples`).
-- [ ] 1.2 Buat `backend/requirements.txt` dengan dependensi esensial (FastAPI, Uvicorn, OpenCV-Python, NumPy, SciPy, Ultralytics, Pydantic, Pytest).
+- [x] 1.2 Buat `backend/requirements.txt` dengan dependensi esensial (FastAPI, Uvicorn, OpenCV-Python, NumPy, SciPy, Ultralytics, Pydantic, Pytest).
 - [ ] 1.3 Inisialisasi boiler-plate backend FastAPI (`backend/app/main.py`) lengkap dengan CORS, routing dasar, dan health-check endpoint (`GET /health`).
 - [ ] 1.4 Inisialisasi scaffolding frontend berbasis React + Vite + Tailwind CSS dengan tema visual profesional (drone/geospatial look).
 - [ ] 1.5 Siapkan modul konfigurasi (`backend/app/core/config.py`) untuk path upload, model weight, dan parameter default analitik.
