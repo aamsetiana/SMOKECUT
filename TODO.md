@@ -25,7 +25,7 @@ Metodologi: **Iteratif Bertahap & Berbasis Pengujian (TDD & Verifikasi Bertingka
 - [x] 1.2 Buat `backend/requirements.txt` dengan dependensi esensial (FastAPI, Uvicorn, OpenCV-Python, NumPy, SciPy, Ultralytics, Pydantic, Pytest).
 - [x] 1.3 Inisialisasi boiler-plate backend FastAPI (`backend/app/main.py`) lengkap dengan CORS, routing dasar, dan health-check endpoint (`GET /health`).
 - [x] 1.4 Inisialisasi scaffolding frontend berbasis React + Vite + Tailwind CSS dengan tema visual profesional (drone/geospatial look).
-- [ ] 1.5 Siapkan modul konfigurasi (`backend/app/core/config.py`) untuk path upload, model weight, dan parameter default analitik.
+- [x] 1.5 Siapkan modul konfigurasi (`backend/app/core/config.py`) untuk path upload, model weight, dan parameter default analitik.
 - [ ] 1.6 Sediakan setidaknya 1 sampel citra drone lahan rawan bakar (`samples/sample_aerial.jpg`) sebagai data uji coba awal.
 
 ---
