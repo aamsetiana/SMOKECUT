@@ -49,7 +49,8 @@ Metodologi: **Iteratif Bertahap & Berbasis Pengujian (TDD & Verifikasi Bertingka
 - [x] 2.5 Tulis unit test untuk optimizer sekat bakar (`backend/tests/test_firebreak.py`).
 - [x] 2.6 Implementasi service simulasi data angin & cuaca (`backend/app/services/weather_service.py`):
   - Dukungan parameter manual (kecepatan & arah mata angin) untuk mode patroli lapangan offline.
-  - Mock generator data arah angin realistis.
+  - Estimasi otomatis arah & kecepatan angin via Computer Vision (Smoke Plume Drift, Fuel Gradient, & Baseline Buffer) jika data angin tidak diketahui/tanpa sensor.
+  - Integrasi auto-wind ke endpoint `/api/analyze` dan visualisasi arah angin di overlay sekat bakar.
 - [x] 2.7 Implementasi WhatsApp Alert Dispatcher (`backend/app/services/notification_service.py`):
   - Generator pesan untuk Tim MPA: ringkasan status risiko, panjang jalur babat (meter), koordinat GPS, dan tautan peta visual.
   - Generator pesan peringatan dini untuk Warga Downwind (zona arah angin): rekomendasi tutup jendela, pemakaian masker, perlindungan kelompok rentan.

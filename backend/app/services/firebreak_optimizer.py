@@ -41,6 +41,7 @@ class FirebreakOptimizer:
         safety_buffer_meters: float = DEFAULT_SAFETY_BUFFER_METERS,
         firebreak_width_meters: float = DEFAULT_FIREBREAK_WIDTH_METERS,
         image_id: str = "default",
+        is_auto_wind: bool = False,
     ) -> Dict[str, Any]:
         """Compute the optimal firebreak trajectory, metrics, and visualization overlay."""
         w = image_dimensions["width"]
@@ -182,8 +183,10 @@ class FirebreakOptimizer:
         ay1 = arrow_cy + int(v_spread_y * arrow_len)
         draw.line([(arrow_cx, arrow_cy), (ax1, ay1)], fill=(14, 165, 233, 240), width=4)
         draw.ellipse([arrow_cx - 4, arrow_cy - 4, arrow_cx + 4, arrow_cy + 4], fill=(14, 165, 233, 255))
-        draw.text((w - 155, 30), f"Angin: {wind_speed_kmh} km/j", fill=(255, 255, 255, 230))
-        draw.text((w - 155, 46), f"Arah: {wind_compass}", fill=(14, 165, 233, 255))
+        if is_auto_wind:
+            draw.text((w - 175, 14), "Angin: Deteksi AI Vision", fill=(34, 197, 94, 255))
+        draw.text((w - 175, 30), f"Kecepatan: {wind_speed_kmh} km/j", fill=(255, 255, 255, 230))
+        draw.text((w - 175, 46), f"Arah Datang: {wind_compass}", fill=(14, 165, 233, 255))
 
         # Save Overlay Image
         overlay_filename = f"firebreak_overlay_{image_id}.png"
@@ -213,6 +216,7 @@ class FirebreakOptimizer:
                 "direction_degrees": wind_deg,
                 "direction_compass": wind_compass,
                 "speed_kmh": wind_speed_kmh,
+                "is_auto_detected": is_auto_wind,
             },
             "overlay_filename": overlay_filename,
             "overlay_url": f"/static/output/{overlay_filename}",
