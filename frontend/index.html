@@ -1,35 +1,506 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="id">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%230284c7' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M12 2v20M2 12h20'/></svg>" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>SMOKECUT — Smart Drone-Vision untuk Mitigasi Sekat Bakar</title>
-    <!-- Tailwind CSS CDN Fallback for instant browser rendering -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-      tailwind.config = {
-        theme: {
-          extend: {
-            colors: {
-              brand: {
-                dark: '#0B1120',
-                card: '#1E293B',
-                border: '#334155',
-                primary: '#0284C7',
-                accent: '#F59E0B',
-                danger: '#EF4444',
-                success: '#10B981',
-                warning: '#F97316'
-              }
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SMOKECUT — Smart Drone-Vision untuk Mitigasi Sekat Bakar & Pencegahan Asap PM2.5</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              dark: '#0B1120',
+              card: '#1E293B',
+              border: '#334155',
+              primary: '#0284C7',
+              accent: '#F59E0B',
+              danger: '#EF4444',
+              success: '#10B981',
+              warning: '#F97316'
             }
           }
         }
       }
-    </script>
-  </head>
-  <body class="bg-[#0B1120] text-slate-100 min-h-screen antialiased selection:bg-sky-500 selection:text-white">
-    <div id="root"></div>
-    <script type="module" src="/src/main.jsx"></script>
-  </body>
+    }
+  </script>
+  <style>
+    .layer-canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      pointer-events: none;
+    }
+  </style>
+</head>
+<body class="bg-[#0B1120] text-slate-100 min-h-screen antialiased selection:bg-sky-500 selection:text-white flex flex-col font-sans">
+
+  <!-- Top Header Navigation -->
+  <header class="border-b border-slate-800 bg-[#0F172A]/95 backdrop-blur sticky top-0 z-50 px-6 py-3.5 flex flex-wrap items-center justify-between gap-4">
+    <div class="flex items-center gap-3">
+      <div class="h-10 w-10 rounded-xl bg-gradient-to-br from-sky-500/20 to-amber-500/20 border border-sky-500/40 flex items-center justify-center font-black text-sky-400 tracking-wider shadow-inner">
+        SC
+      </div>
+      <div>
+        <div class="flex items-center gap-2">
+          <h1 class="font-extrabold text-lg tracking-wide text-white">SMOKECUT</h1>
+          <span class="text-[11px] px-2 py-0.5 rounded-full bg-sky-500/10 text-sky-400 border border-sky-500/30 font-semibold">
+            AIRIMPACT 2026
+          </span>
+        </div>
+        <p class="text-xs text-slate-400">Smart Drone-Vision untuk Mitigasi Sekat Bakar & Pencegahan Asap PM2.5</p>
+      </div>
+    </div>
+
+    <div class="flex items-center gap-3">
+      <!-- Operational Mode Selector -->
+      <div class="bg-slate-900 border border-slate-800 p-1 rounded-lg flex text-xs font-semibold">
+        <button id="btn-mode-prev" onclick="setMode('preventive')" class="px-3 py-1.5 rounded-md bg-sky-600 text-white shadow transition">
+          Patroli Preventif
+        </button>
+        <button id="btn-mode-quick" onclick="setMode('quick')" class="px-3 py-1.5 rounded-md text-slate-400 hover:text-white transition">
+          Respons Cepat
+        </button>
+      </div>
+
+      <!-- Live Connection Status -->
+      <div class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 text-xs">
+        <span id="backend-dot" class="h-2 w-2 rounded-full bg-amber-400 animate-pulse"></span>
+        <span id="backend-text" class="text-slate-300">Menghubungkan...</span>
+      </div>
+
+      <a href="/docs" target="_blank" class="text-xs px-2.5 py-1.5 rounded-lg border border-slate-700 bg-slate-800 hover:bg-slate-700 text-slate-300 transition">
+        Swagger API ↗
+      </a>
+    </div>
+  </header>
+
+  <!-- Main Workspace -->
+  <main class="flex-1 p-6 max-w-[1600px] mx-auto w-full grid grid-cols-1 xl:grid-cols-12 gap-6">
+
+    <!-- LEFT COLUMN: Input & Control Panel (4 cols) -->
+    <div class="xl:col-span-4 space-y-6">
+
+      <!-- Step 1: Media Uploader -->
+      <section class="bg-[#1E293B] border border-slate-700/60 rounded-2xl p-5 shadow-xl">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="text-xs font-bold uppercase tracking-wider text-slate-400">1. Unggah Citra Udara Drone</h2>
+          <span class="text-[10px] text-sky-400 font-mono">RGB (60-100m)</span>
+        </div>
+
+        <div id="drop-area" onclick="document.getElementById('file-input').click()" class="border-2 border-dashed border-slate-600 hover:border-sky-500 rounded-xl p-5 text-center transition cursor-pointer bg-slate-900/50 hover:bg-slate-900/80 group">
+          <input type="file" id="file-input" class="hidden" accept=".jpg,.jpeg,.png,.mp4" onchange="handleFileSelect(event)" />
+          <div class="text-3xl mb-2 group-hover:scale-110 transition transform">🛰️</div>
+          <p id="upload-label" class="text-sm font-semibold text-slate-200">Klik atau Drag & Drop foto drone</p>
+          <p class="text-xs text-slate-400 mt-1">Mendukung format JPG, PNG, atau rekaman MP4</p>
+        </div>
+
+        <div class="mt-3 flex items-center justify-between">
+          <span class="text-xs text-slate-400">Atau gunakan sampel uji lapangan:</span>
+          <button onclick="loadSampleImage()" class="text-xs font-semibold px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-sky-400 border border-sky-500/30 rounded-lg transition shadow-sm">
+            ⚡ Muat Sampel Demo
+          </button>
+        </div>
+      </section>
+
+      <!-- Step 2: Environmental & Firebreak Parameters -->
+      <section class="bg-[#1E293B] border border-slate-700/60 rounded-2xl p-5 shadow-xl space-y-4">
+        <h2 class="text-xs font-bold uppercase tracking-wider text-slate-400">2. Parameter Lingkungan & Sekat</h2>
+
+        <!-- Wind Direction Slider -->
+        <div>
+          <div class="flex justify-between text-xs mb-1">
+            <span class="text-slate-300 font-medium">Arah Embusan Angin</span>
+            <span id="wind-dir-label" class="text-sky-400 font-bold font-mono">135° — Tenggara (SE)</span>
+          </div>
+          <input type="range" id="wind-direction" min="0" max="360" value="135" class="w-full accent-sky-500 h-1.5 bg-slate-700 rounded-lg cursor-pointer" oninput="updateWindLabel(this.value)" />
+          <div class="flex justify-between text-[10px] text-slate-500 font-mono mt-0.5">
+            <span>U (0°)</span>
+            <span>T (90°)</span>
+            <span>S (180°)</span>
+            <span>B (270°)</span>
+            <span>U (360°)</span>
+          </div>
+        </div>
+
+        <!-- Wind Speed Slider -->
+        <div>
+          <div class="flex justify-between text-xs mb-1">
+            <span class="text-slate-300 font-medium">Kecepatan Angin</span>
+            <span id="wind-speed-label" class="text-sky-400 font-bold font-mono">14 km/jam</span>
+          </div>
+          <input type="range" id="wind-speed" min="1" max="50" value="14" class="w-full accent-sky-500 h-1.5 bg-slate-700 rounded-lg cursor-pointer" oninput="document.getElementById('wind-speed-label').textContent = this.value + ' km/jam'" />
+        </div>
+
+        <!-- Safety Buffer Slider -->
+        <div>
+          <div class="flex justify-between text-xs mb-1">
+            <span class="text-slate-300 font-medium">Jarak Aman Tim MPA (Safety Buffer)</span>
+            <span id="safety-buffer-label" class="text-amber-400 font-bold font-mono">25 meter</span>
+          </div>
+          <input type="range" id="safety-buffer" min="15" max="50" value="25" class="w-full accent-amber-500 h-1.5 bg-slate-700 rounded-lg cursor-pointer" oninput="document.getElementById('safety-buffer-label').textContent = this.value + ' meter'" />
+          <p class="text-[11px] text-slate-400 mt-1">Dihitung otomatis membesar jika kecepatan angin meningkat.</p>
+        </div>
+
+        <!-- Firebreak Width Buttons -->
+        <div>
+          <label class="text-xs font-medium text-slate-300 block mb-2">Lebar Pemotongan Sekat Bakar</label>
+          <div class="grid grid-cols-3 gap-2">
+            <button type="button" onclick="setWidth(3)" id="btn-w3" class="py-2 text-xs font-semibold rounded-lg border border-slate-700 bg-slate-800 text-slate-300 hover:border-slate-600 transition">3 Meter</button>
+            <button type="button" onclick="setWidth(4)" id="btn-w4" class="py-2 text-xs font-semibold rounded-lg border border-sky-500 bg-sky-500/20 text-sky-300 font-bold shadow-sm transition">4 Meter</button>
+            <button type="button" onclick="setWidth(5)" id="btn-w5" class="py-2 text-xs font-semibold rounded-lg border border-slate-700 bg-slate-800 text-slate-300 hover:border-slate-600 transition">5 Meter</button>
+          </div>
+        </div>
+
+        <!-- Trigger Button -->
+        <button id="btn-analyze" onclick="executeAnalysis()" class="w-full mt-2 py-3.5 px-4 rounded-xl bg-gradient-to-r from-sky-600 to-blue-600 hover:from-sky-500 hover:to-blue-500 font-bold text-sm tracking-wide text-white shadow-lg shadow-sky-600/30 active:scale-[0.98] transition flex items-center justify-center gap-2">
+          <span>⚡ Jalankan Analisis AI Lengkap</span>
+        </button>
+      </section>
+
+      <!-- Step 3: Metrics Summary Card -->
+      <section id="metrics-card" class="bg-[#1E293B] border border-slate-700/60 rounded-2xl p-5 shadow-xl space-y-4 hidden">
+        <div class="flex items-center justify-between pb-3 border-b border-slate-700/60">
+          <h2 class="text-xs font-bold uppercase tracking-wider text-slate-400">Ringkasan Estimasi Taktis</h2>
+          <span id="badge-risk" class="text-xs font-bold px-2.5 py-0.5 rounded-full bg-rose-500/20 text-rose-400 border border-rose-500/40">
+            RISIKO TINGGI
+          </span>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3 text-center font-mono">
+          <div class="bg-slate-900/60 p-3 rounded-xl border border-slate-800">
+            <div class="text-[10px] text-slate-400 font-sans uppercase">Panjang Sekat</div>
+            <div id="metric-length" class="text-xl font-bold text-amber-400 mt-0.5">-- m</div>
+            <div class="text-[10px] text-slate-500 font-sans">Lebar 4m</div>
+          </div>
+          <div class="bg-slate-900/60 p-3 rounded-xl border border-slate-800">
+            <div class="text-[10px] text-slate-400 font-sans uppercase">Waktu Pengerjaan</div>
+            <div id="metric-hours" class="text-xl font-bold text-sky-400 mt-0.5">-- jam</div>
+            <div class="text-[10px] text-slate-500 font-sans">Regu 5 Orang</div>
+          </div>
+          <div class="bg-slate-900/60 p-3 rounded-xl border border-slate-800">
+            <div class="text-[10px] text-slate-400 font-sans uppercase">Luas Lahan Terlindungi</div>
+            <div id="metric-area" class="text-xl font-bold text-emerald-400 mt-0.5">-- ha</div>
+            <div class="text-[10px] text-slate-500 font-sans">Zona Semak Kering</div>
+          </div>
+          <div class="bg-slate-900/60 p-3 rounded-xl border border-slate-800">
+            <div class="text-[10px] text-slate-400 font-sans uppercase">Safety Buffer</div>
+            <div id="metric-buffer" class="text-xl font-bold text-purple-400 mt-0.5">-- m</div>
+            <div class="text-[10px] text-slate-500 font-sans">Jarak Aman Regu</div>
+          </div>
+        </div>
+      </section>
+
+    </div>
+
+    <!-- RIGHT COLUMN: Multi-Layer Canvas & WhatsApp Center (8 cols) -->
+    <div class="xl:col-span-8 space-y-6">
+
+      <!-- Aerial Viewer Multi-Layer Canvas -->
+      <section class="bg-[#1E293B] border border-slate-700/60 rounded-2xl p-5 shadow-xl flex flex-col">
+        <div class="flex flex-wrap items-center justify-between pb-3 border-b border-slate-700/60 gap-3 mb-4">
+          <div>
+            <h2 class="text-sm font-bold text-white flex items-center gap-2">
+              Visualizer Multi-Layer Citra Drone
+              <span id="analysis-status" class="text-[11px] font-medium px-2 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700">
+                Standby
+              </span>
+            </h2>
+            <p class="text-xs text-slate-400">Komposisi citra drone RGB, flammability index VARI, dan rekomendasi jalur pemotongan api.</p>
+          </div>
+
+          <!-- Layer Toggles -->
+          <div class="flex flex-wrap items-center gap-2 text-xs">
+            <label class="flex items-center gap-1.5 px-2.5 py-1 rounded bg-slate-800/80 border border-slate-700 cursor-pointer hover:bg-slate-800">
+              <input type="checkbox" id="layer-original" checked onchange="toggleLayers()" class="rounded text-sky-500" />
+              <span>Foto RGB</span>
+            </label>
+            <label class="flex items-center gap-1.5 px-2.5 py-1 rounded bg-slate-800/80 border border-slate-700 cursor-pointer hover:bg-slate-800">
+              <input type="checkbox" id="layer-vari" checked onchange="toggleLayers()" class="rounded text-rose-500" />
+              <span class="text-rose-400">Heatmap VARI</span>
+            </label>
+            <label class="flex items-center gap-1.5 px-2.5 py-1 rounded bg-slate-800/80 border border-slate-700 cursor-pointer hover:bg-slate-800">
+              <input type="checkbox" id="layer-detections" checked onchange="toggleLayers()" class="rounded text-sky-400" />
+              <span class="text-sky-300">Deteksi Api/Asap</span>
+            </label>
+            <label class="flex items-center gap-1.5 px-2.5 py-1 rounded bg-slate-800/80 border border-slate-700 cursor-pointer hover:bg-slate-800">
+              <input type="checkbox" id="layer-firebreak" checked onchange="toggleLayers()" class="rounded text-amber-400" />
+              <span class="text-amber-300">Jalur Sekat Bakar</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Canvas Container -->
+        <div id="viewer-container" class="relative w-full aspect-[4/3] max-h-[580px] bg-slate-950 rounded-xl border border-slate-800 overflow-hidden flex items-center justify-center">
+          <div id="empty-state" class="text-center p-8">
+            <div class="text-5xl text-slate-700 mb-3 animate-bounce">🛰️</div>
+            <p class="text-sm font-semibold text-slate-300">Belum Ada Citra yang Dianalisis</p>
+            <p class="text-xs text-slate-500 max-w-sm mt-1">Unggah foto/video drone dari panel kiri atau klik tombol "Muat Sampel Demo" untuk menjalankan demonstrasi instan.</p>
+          </div>
+
+          <!-- Composite Layers -->
+          <img id="img-original" class="layer-canvas hidden" alt="Original Drone" />
+          <img id="img-vari" class="layer-canvas hidden" alt="VARI Overlay" />
+          <img id="img-detections" class="layer-canvas hidden" alt="Detections Overlay" />
+          <img id="img-firebreak" class="layer-canvas hidden" alt="Firebreak Overlay" />
+        </div>
+      </section>
+
+      <!-- WhatsApp Dispatch Panel -->
+      <section id="dispatch-section" class="bg-[#1E293B] border border-slate-700/60 rounded-2xl p-5 shadow-xl space-y-4 hidden">
+        <div class="flex items-center justify-between pb-3 border-b border-slate-700/60">
+          <div>
+            <h2 class="text-sm font-bold text-white flex items-center gap-2">
+              📲 Distribusi Pesan Lapangan & Peringatan Dini WhatsApp
+            </h2>
+            <p class="text-xs text-slate-400">Instruksi langsung untuk tim tebas MPA dan peringatan kualitas udara warga searah angin (downwind).</p>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <!-- Card MPA -->
+          <div class="bg-slate-900/80 border border-slate-800 rounded-xl p-4 flex flex-col justify-between">
+            <div>
+              <div class="flex items-center justify-between mb-2">
+                <span class="text-xs font-bold text-amber-400 flex items-center gap-1.5">
+                  <span>🚨</span> Tim Lapangan MPA / BPBD
+                </span>
+                <span class="text-[10px] px-2 py-0.5 rounded bg-amber-500/10 text-amber-300 border border-amber-500/20 font-mono">Taktis & GPS</span>
+              </div>
+              <pre id="text-mpa" class="text-[11px] text-slate-300 font-sans whitespace-pre-wrap bg-slate-950/60 p-3 rounded-lg border border-slate-800 max-h-48 overflow-y-auto"></pre>
+            </div>
+            <a id="link-mpa" href="#" target="_blank" class="mt-3 py-2 px-4 rounded-lg bg-emerald-600 hover:bg-emerald-500 font-bold text-xs text-white text-center shadow transition flex items-center justify-center gap-2">
+              <span>💬 Kirim ke WhatsApp MPA</span>
+            </a>
+          </div>
+
+          <!-- Card Downwind Residents -->
+          <div class="bg-slate-900/80 border border-slate-800 rounded-xl p-4 flex flex-col justify-between">
+            <div>
+              <div class="flex items-center justify-between mb-2">
+                <span class="text-xs font-bold text-sky-400 flex items-center gap-1.5">
+                  <span>⚠️</span> Warga Permukiman Downwind
+                </span>
+                <span class="text-[10px] px-2 py-0.5 rounded bg-sky-500/10 text-sky-300 border border-sky-500/20 font-mono">Early Warning PM2.5</span>
+              </div>
+              <pre id="text-downwind" class="text-[11px] text-slate-300 font-sans whitespace-pre-wrap bg-slate-950/60 p-3 rounded-lg border border-slate-800 max-h-48 overflow-y-auto"></pre>
+            </div>
+            <a id="link-downwind" href="#" target="_blank" class="mt-3 py-2 px-4 rounded-lg bg-emerald-600 hover:bg-emerald-500 font-bold text-xs text-white text-center shadow transition flex items-center justify-center gap-2">
+              <span>💬 Kirim Peringatan ke Warga</span>
+            </a>
+          </div>
+        </div>
+      </section>
+
+    </div>
+
+  </main>
+
+  <!-- Footer -->
+  <footer class="border-t border-slate-800 bg-[#0F172A] px-6 py-3 text-xs text-slate-500 flex justify-between items-center">
+    <span>SMOKECUT — Cegah Api Melebar, Jaga Napas Warga.</span>
+    <span>AIRIMPACT 2026 (MarkPlus, Inc.)</span>
+  </footer>
+
+  <!-- Application Logic -->
+  <script>
+    let currentImageId = 'sample';
+    let currentWidthMeters = 4.0;
+    let latestAnalysisData = null;
+
+    // Check Backend Connection
+    async function checkBackend() {
+      try {
+        const res = await fetch('/health');
+        if (res.ok) {
+          const data = await res.json();
+          document.getElementById('backend-dot').className = 'h-2 w-2 rounded-full bg-emerald-400';
+          document.getElementById('backend-text').textContent = 'Backend Online';
+        } else {
+          throw new Error();
+        }
+      } catch (e) {
+        document.getElementById('backend-dot').className = 'h-2 w-2 rounded-full bg-rose-500';
+        document.getElementById('backend-text').textContent = 'Offline';
+      }
+    }
+    checkBackend();
+    setInterval(checkBackend, 15000);
+
+    function setMode(mode) {
+      const p = document.getElementById('btn-mode-prev');
+      const q = document.getElementById('btn-mode-quick');
+      if (mode === 'preventive') {
+        p.className = 'px-3 py-1.5 rounded-md bg-sky-600 text-white shadow transition';
+        q.className = 'px-3 py-1.5 rounded-md text-slate-400 hover:text-white transition';
+      } else {
+        q.className = 'px-3 py-1.5 rounded-md bg-amber-600 text-white shadow transition';
+        p.className = 'px-3 py-1.5 rounded-md text-slate-400 hover:text-white transition';
+      }
+    }
+
+    function setWidth(w) {
+      currentWidthMeters = parseFloat(w);
+      [3, 4, 5].forEach(val => {
+        const btn = document.getElementById('btn-w' + val);
+        if (val === w) {
+          btn.className = 'py-2 text-xs font-semibold rounded-lg border border-sky-500 bg-sky-500/20 text-sky-300 font-bold shadow-sm transition';
+        } else {
+          btn.className = 'py-2 text-xs font-semibold rounded-lg border border-slate-700 bg-slate-800 text-slate-300 hover:border-slate-600 transition';
+        }
+      });
+    }
+
+    function updateWindLabel(val) {
+      const deg = parseFloat(val);
+      let comp = 'Utara (N)';
+      if (deg >= 22.5 && deg < 67.5) comp = 'Timur Laut (NE)';
+      else if (deg >= 67.5 && deg < 112.5) comp = 'Timur (E)';
+      else if (deg >= 112.5 && deg < 157.5) comp = 'Tenggara (SE)';
+      else if (deg >= 157.5 && deg < 202.5) comp = 'Selatan (S)';
+      else if (deg >= 202.5 && deg < 247.5) comp = 'Barat Daya (SW)';
+      else if (deg >= 247.5 && deg < 292.5) comp = 'Barat (W)';
+      else if (deg >= 292.5 && deg < 337.5) comp = 'Barat Laut (NW)';
+      document.getElementById('wind-dir-label').textContent = `${val}° — ${comp}`;
+    }
+
+    function loadSampleImage() {
+      currentImageId = 'sample';
+      document.getElementById('upload-label').textContent = '✅ Sampel Demo Terpilih: sample_aerial.jpg';
+      executeAnalysis();
+    }
+
+    async function handleFileSelect(evt) {
+      const file = evt.target.files[0];
+      if (!file) return;
+
+      document.getElementById('upload-label').textContent = `Mengunggah: ${file.name}...`;
+      const formData = new FormData();
+      formData.append('file', file);
+
+      try {
+        const res = await fetch('/api/upload', { method: 'POST', body: formData });
+        const data = await res.json();
+        if (res.ok) {
+          currentImageId = data.image_id;
+          document.getElementById('upload-label').textContent = `✅ Terunggah: ${data.filename}`;
+          executeAnalysis();
+        } else {
+          alert(data.detail || 'Gagal mengunggah file.');
+        }
+      } catch (err) {
+        alert('Gagal menghubungi backend untuk upload.');
+      }
+    }
+
+    async function executeAnalysis() {
+      const btn = document.getElementById('btn-analyze');
+      btn.disabled = true;
+      btn.innerHTML = `<span class="animate-spin">⚙️</span> Memproses 3-Layer Vision AI...`;
+      document.getElementById('analysis-status').textContent = 'Sedang Menganalisis...';
+      document.getElementById('analysis-status').className = 'text-[11px] font-medium px-2 py-0.5 rounded bg-sky-500/20 text-sky-400 border border-sky-500/30';
+
+      const payload = {
+        image_id: currentImageId,
+        wind_direction: parseFloat(document.getElementById('wind-direction').value),
+        wind_speed: parseFloat(document.getElementById('wind-speed').value),
+        safety_buffer: parseFloat(document.getElementById('safety-buffer').value),
+        firebreak_width: currentWidthMeters
+      };
+
+      try {
+        const res = await fetch('/api/analyze', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || 'Analisis gagal');
+
+        latestAnalysisData = data;
+        renderAnalysisResults(data);
+        fetchWhatsAppDispatches(data);
+
+        document.getElementById('analysis-status').textContent = 'Selesai';
+        document.getElementById('analysis-status').className = 'text-[11px] font-medium px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30';
+      } catch (e) {
+        alert('Error saat analisis: ' + e.message);
+        document.getElementById('analysis-status').textContent = 'Error';
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = `<span>⚡ Jalankan Analisis AI Lengkap</span>`;
+      }
+    }
+
+    function renderAnalysisResults(data) {
+      document.getElementById('empty-state').classList.add('hidden');
+
+      // Update Layer Images
+      const imgOrig = document.getElementById('img-original');
+      const imgVari = document.getElementById('img-vari');
+      const imgDet = document.getElementById('img-detections');
+      const imgFire = document.getElementById('img-firebreak');
+
+      imgOrig.src = data.layers.original_image_url + '?t=' + Date.now();
+      imgVari.src = data.layers.vari_heatmap_url + '?t=' + Date.now();
+      imgDet.src = data.layers.detection_overlay_url + '?t=' + Date.now();
+      imgFire.src = data.layers.firebreak_overlay_url + '?t=' + Date.now();
+
+      toggleLayers();
+
+      // Update Metrics Card
+      const s = data.summary;
+      document.getElementById('metrics-card').classList.remove('hidden');
+      document.getElementById('badge-risk').textContent = 'RISIKO ' + s.risk_level;
+      document.getElementById('badge-risk').className = s.risk_level === 'TINGGI' ? 'text-xs font-bold px-2.5 py-0.5 rounded-full bg-rose-500/20 text-rose-400 border border-rose-500/40' : 'text-xs font-bold px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/40';
+
+      document.getElementById('metric-length').textContent = s.cutting_length_meters + ' m';
+      document.getElementById('metric-hours').textContent = s.clearing_time_hours + ' jam';
+      document.getElementById('metric-area').textContent = s.protected_hectares + ' ha';
+      document.getElementById('metric-buffer').textContent = s.effective_safety_buffer_meters + ' m';
+    }
+
+    function toggleLayers() {
+      const orig = document.getElementById('layer-original').checked;
+      const vari = document.getElementById('layer-vari').checked;
+      const det = document.getElementById('layer-detections').checked;
+      const fire = document.getElementById('layer-firebreak').checked;
+
+      document.getElementById('img-original').classList.toggle('hidden', !orig);
+      document.getElementById('img-vari').classList.toggle('hidden', !vari);
+      document.getElementById('img-detections').classList.toggle('hidden', !det);
+      document.getElementById('img-firebreak').classList.toggle('hidden', !fire);
+    }
+
+    async function fetchWhatsAppDispatches(analysisData) {
+      try {
+        const res = await fetch('/api/dispatch-whatsapp', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ analysis_data: analysisData })
+        });
+        const data = await res.json();
+        if (res.ok && data.dispatches) {
+          document.getElementById('dispatch-section').classList.remove('hidden');
+
+          const mpa = data.dispatches[0];
+          document.getElementById('text-mpa').textContent = mpa.message_text;
+          document.getElementById('link-mpa').href = mpa.deep_link;
+
+          const downwind = data.dispatches[1];
+          document.getElementById('text-downwind').textContent = downwind.message_text;
+          document.getElementById('link-downwind').href = downwind.deep_link;
+        }
+      } catch (err) {
+        console.error('Failed to fetch WhatsApp dispatches:', err);
+      }
+    }
+  </script>
+</body>
 </html>

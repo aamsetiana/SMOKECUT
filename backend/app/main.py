@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 
 from backend.app.core.config import (
     APP_NAME,
@@ -12,8 +13,11 @@ from backend.app.core.config import (
     CORS_ORIGINS,
     OUTPUT_DIR,
     UPLOADS_DIR,
+    WORKSPACE_DIR,
 )
 from backend.app.api.routes import router as api_router
+
+FRONTEND_INDEX = WORKSPACE_DIR / "frontend" / "index.html"
 
 app = FastAPI(
     title=APP_NAME,
@@ -50,7 +54,14 @@ def root():
         "competition": "AIRIMPACT 2026",
         "status": "online",
         "docs_url": "/docs",
+        "dashboard_url": "/app",
     }
+
+
+@app.get("/app", response_class=FileResponse, tags=["Dashboard"])
+def get_dashboard():
+    """Serves the SMOKECUT Interactive Web Dashboard."""
+    return FileResponse(str(FRONTEND_INDEX))
 
 
 @app.get("/health", tags=["Health"])

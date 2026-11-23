@@ -20,3 +20,10 @@ def test_health_endpoint():
     data = response.json()
     assert data["status"] == "ok"
     assert "timestamp" in data
+
+
+def test_dashboard_endpoint():
+    response = client.get("/app")
+    assert response.status_code == 200
+    assert "SMOKECUT" in response.text
+    assert "AIRIMPACT" in response.text
