@@ -31,12 +31,12 @@ Metodologi: **Iteratif Bertahap & Berbasis Pengujian (TDD & Verifikasi Bertingka
 ---
 
 ### Fase 2: Core Backend / Logika Utama Computer Vision & AI
-- [ ] 2.1 Implementasi modul kalkulasi indeks vegetasi **VARI** (`backend/app/cv/vari_processor.py`):
+- [x] 2.1 Implementasi modul kalkulasi indeks vegetasi **VARI** (`backend/app/cv/vari_processor.py`):
   - Formula: $\text{VARI} = \frac{G - R}{G + R - B}$
   - Penanganan kasus pembagian dengan nol (*zero division safe guard*).
   - Klasifikasi zonasi: Zona Merah/Kuning (semak kering mudah terbakar, nilai $\le 0.1$) vs Zona Hijau (vegetasi lembap, nilai $> 0.1$).
   - Pembuatan heatmap visualisasi (overlay RGBA transparan 30%).
-- [ ] 2.2 Tulis unit test untuk modul VARI (`backend/tests/test_vari.py`) untuk memverifikasi akurasi matematis formula dan ketahanan input citra.
+- [x] 2.2 Tulis unit test untuk modul VARI (`backend/tests/test_vari.py`) untuk memverifikasi akurasi matematis formula dan ketahanan input citra.
 - [ ] 2.3 Implementasi modul deteksi dini asap & api (`backend/app/cv/smoke_detector.py`):
   - Integrasi inferensi model deteksi ringan (YOLOv8n / YOLOv11n) untuk frame video/foto.
   - Ekstraksi koordinat bounding box, confidence score, dan titik pusat (*centroid*).
