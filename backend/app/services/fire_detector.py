@@ -22,64 +22,28 @@ class FireSmokeDetector:
     def _get_connected_components_bboxes(
         self, binary_mask: np.ndarray, min_area: int = 8, max_area: int = 50000
     ) -> List[Dict[str, int]]:
-        """Extract bounding boxes from a binary mask using efficient flood-fill / connected components."""
-        h, w = binary_mask.shape
-        visited = np.zeros((h, w), dtype=bool)
+        """Extract bounding boxes from a binary mask using fast OpenCV connected components."""
+        import cv2
+
+        num_labels, labels, stats, centroids = cv2.connectedComponentsWithStats(
+            binary_mask.astype(np.uint8), connectivity=8
+        )
         bboxes = []
-
-        # Find positive coordinates
-        ys, xs = np.where(binary_mask)
-        if len(xs) == 0:
-            return []
-
-        # Simple grid-based clustering for fast processing without heavy dependencies
-        step = 8
-        for i in range(len(xs)):
-            cx, cy = xs[i], ys[i]
-            if visited[cy, cx]:
-                continue
-
-            # BFS to find connected cluster
-            queue = [(cx, cy)]
-            visited[cy, cx] = True
-            cluster_xs = [cx]
-            cluster_ys = [cy]
-
-            while queue:
-                qx, qy = queue.pop(0)
-                # Check neighbors within a 4-pixel radius to bridge small gaps
-                x_min_n = max(0, qx - 3)
-                x_max_n = min(w, qx + 4)
-                y_min_n = max(0, qy - 3)
-                y_max_n = min(h, qy + 4)
-
-                sub_mask = binary_mask[y_min_n:y_max_n, x_min_n:x_max_n] & ~visited[y_min_n:y_max_n, x_min_n:x_max_n]
-                sub_ys, sub_xs = np.where(sub_mask)
-                for sy, sx in zip(sub_ys, sub_xs):
-                    nx = x_min_n + sx
-                    ny = y_min_n + sy
-                    visited[ny, nx] = True
-                    cluster_xs.append(nx)
-                    cluster_ys.append(ny)
-                    if len(queue) < 150:  # Bound BFS expansion speed
-                        queue.append((nx, ny))
-
-            area = len(cluster_xs)
+        for i in range(1, num_labels):
+            area = int(stats[i, cv2.CC_STAT_AREA])
             if min_area <= area <= max_area:
-                bx0 = int(min(cluster_xs))
-                by0 = int(min(cluster_ys))
-                bx1 = int(max(cluster_xs))
-                by1 = int(max(cluster_ys))
-                bw = bx1 - bx0 + 1
-                bh = by1 - by0 + 1
+                x = int(stats[i, cv2.CC_STAT_LEFT])
+                y = int(stats[i, cv2.CC_STAT_TOP])
+                w = int(stats[i, cv2.CC_STAT_WIDTH])
+                h = int(stats[i, cv2.CC_STAT_HEIGHT])
                 bboxes.append({
-                    "x": bx0,
-                    "y": by0,
-                    "w": bw,
-                    "h": bh,
+                    "x": x,
+                    "y": y,
+                    "w": w,
+                    "h": h,
                     "area": area,
-                    "centroid_x": int(np.mean(cluster_xs)),
-                    "centroid_y": int(np.mean(cluster_ys)),
+                    "centroid_x": int(centroids[i][0]),
+                    "centroid_y": int(centroids[i][1]),
                 })
 
         # Merge overlapping or close bounding boxes
@@ -244,6 +208,79 @@ class FireSmokeDetector:
             "overlay_filename": overlay_filename,
             "overlay_url": f"/static/output/{overlay_filename}",
         }
+
+    def annotate_video(self, input_video_path: Path, output_video_path: Path) -> Path:
+        """Process video frame-by-frame and annotate bounding boxes that move dynamically with the video."""
+        import cv2
+        import shutil
+        import subprocess
+
+        cap = cv2.VideoCapture(str(input_video_path))
+        if not cap.isOpened():
+            return input_video_path
+
+        fps = cap.get(cv2.CAP_PROP_FPS) or 10.0
+        w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+        h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+
+        temp_raw = output_video_path.parent / f"temp_{output_video_path.name}"
+        fourcc = cv2.VideoWriter_fourcc(*"mp4v")
+        out = cv2.VideoWriter(str(temp_raw), fourcc, fps, (w, h))
+
+        while True:
+            ret, frame = cap.read()
+            if not ret:
+                break
+            rgb = frame[:, :, ::-1]
+            dets = self.detect_cv(rgb)
+
+            for det in dets:
+                bbox = det["bbox"]
+                x0, y0 = bbox["x"], bbox["y"]
+                x1, y1 = x0 + bbox["w"], y0 + bbox["h"]
+
+                if det["class_name"] == "hotspot":
+                    color = (40, 40, 240)  # Bright Red in BGR
+                    label = f"TITIK API {int(det['confidence']*100)}%"
+                    tag_w = 115
+                else:
+                    color = (240, 180, 50)  # Light Sky Blue in BGR
+                    label = f"KEPULAN ASAP {int(det['confidence']*100)}%"
+                    tag_w = 145
+
+                cv2.rectangle(frame, (x0, y0), (x1, y1), color, 2)
+                tag_y0 = max(0, y0 - 18)
+                cv2.rectangle(frame, (x0, tag_y0), (x0 + tag_w, y0), color, -1)
+                cv2.putText(
+                    frame, label, (x0 + 4, y0 - 4),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.42, (255, 255, 255), 1, cv2.LINE_AA
+                )
+
+            out.write(frame)
+
+        cap.release()
+        out.release()
+
+        # Fast transcode with ffmpeg to ensure web-compatible H.264
+        try:
+            subprocess.run(
+                [
+                    "ffmpeg", "-y", "-i", str(temp_raw),
+                    "-c:v", "libx264", "-pix_fmt", "yuv420p",
+                    "-movflags", "+faststart", str(output_video_path)
+                ],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                timeout=30,
+            )
+        except Exception:
+            if temp_raw.exists():
+                shutil.copy(temp_raw, output_video_path)
+
+        if temp_raw.exists():
+            temp_raw.unlink(missing_ok=True)
+
+        return output_video_path
 
 
 # Singleton instance
