@@ -10,7 +10,7 @@ Metodologi: **Iteratif Bertahap & Berbasis Pengujian (TDD & Verifikasi Bertingka
 
 | Fase | Deskripsi | Status | Total Tugas | Selesai |
 |---|---|---|---|---|
-| **Fase 1** | Inisialisasi & Struktur Dasar | `pending` | 6 | 0 |
+| **Fase 1** | Inisialisasi & Struktur Dasar | `done` | 6 | 6 |
 | **Fase 2** | Core Backend & Logika Computer Vision | `pending` | 8 | 0 |
 | **Fase 3** | Antarmuka / Frontend Dashboard | `pending` | 7 | 0 |
 | **Fase 4** | Integrasi Sistem & Pengujian MVP | `pending` | 6 | 0 |
@@ -26,7 +26,7 @@ Metodologi: **Iteratif Bertahap & Berbasis Pengujian (TDD & Verifikasi Bertingka
 - [x] 1.3 Inisialisasi boiler-plate backend FastAPI (`backend/app/main.py`) lengkap dengan CORS, routing dasar, dan health-check endpoint (`GET /health`).
 - [x] 1.4 Inisialisasi scaffolding frontend berbasis React + Vite + Tailwind CSS dengan tema visual profesional (drone/geospatial look).
 - [x] 1.5 Siapkan modul konfigurasi (`backend/app/core/config.py`) untuk path upload, model weight, dan parameter default analitik.
-- [ ] 1.6 Sediakan setidaknya 1 sampel citra drone lahan rawan bakar (`samples/sample_aerial.jpg`) sebagai data uji coba awal.
+- [x] 1.6 Sediakan setidaknya 1 sampel citra drone lahan rawan bakar (`samples/sample_aerial.jpg`) sebagai data uji coba awal.
 
 ---
 
