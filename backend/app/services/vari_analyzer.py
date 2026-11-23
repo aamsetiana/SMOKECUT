@@ -98,16 +98,16 @@ class VARIAnalyzer:
         safe_percentage = round((safe_count / total_pixels) * 100, 2)
         mean_vari = round(float(np.mean(vari_matrix)), 4)
 
-        # Risk classification
+        # Risk classification with clear, accessible Indonesian descriptions
         if dry_percentage >= 40.0:
             risk_level = "TINGGI"
-            risk_description = "Dominasi semak kering mudah terbakar. Risiko rambatan api sangat tinggi."
+            risk_description = "Lahan didominasi semak kering (bahan bakar api). Api sangat mudah menjalar cepat."
         elif dry_percentage >= 20.0:
             risk_level = "SEDANG"
-            risk_description = "Sebagian semak mengering. Diperlukan sekat bakar selektif."
+            risk_description = "Sebagian semak mengering. Perlu sekat bakar di perbatasan semak kering."
         else:
             risk_level = "RENDAH"
-            risk_description = "Didominasi vegetasi basah/lembap. Risiko kebakaran rendah."
+            risk_description = "Didominasi tanaman hijau lembap. Lahan aman dan tahan dari sambaran api."
 
         # Generate RGBA Heatmap Overlay
         overlay_arr = np.zeros((h, w, 4), dtype=np.uint8)
