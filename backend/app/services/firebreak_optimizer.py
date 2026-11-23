@@ -149,6 +149,7 @@ class FirebreakOptimizer:
             outline=(245, 158, 11, 100),
             width=2,
         )
+        draw.text((int(cx - 55), int(cy + buffer_r - 16)), f"Jarak Aman Tim: {int(effective_buffer_m)}m", fill=(245, 158, 11, 210))
 
         # Draw Dashed / Thick Firebreak Line (Amber / Yellow)
         num_segments = 24
@@ -162,9 +163,17 @@ class FirebreakOptimizer:
                 ey = int(p1_y + (p2_y - p1_y) * t1)
                 draw.line([(sx, sy), (ex, ey)], fill=(245, 158, 11, 245), width=5)
 
-        # Draw Endpoints Beacon Circles
-        for px, py in [(p1_x, p1_y), (p2_x, p2_y)]:
-            draw.ellipse([int(px - 7), int(py - 7), int(px + 7), int(py + 7)], fill=(239, 68, 68, 255), outline=(255, 255, 255, 255), width=2)
+        # Draw Endpoints Beacon Circles with clear Indonesian text
+        draw.ellipse([int(p1_x - 7), int(p1_y - 7), int(p1_x + 7), int(p1_y + 7)], fill=(239, 68, 68, 255), outline=(255, 255, 255, 255), width=2)
+        draw.text((int(p1_x + 9), int(p1_y - 8)), "Mulai (A)", fill=(255, 255, 255, 240))
+
+        draw.ellipse([int(p2_x - 7), int(p2_y - 7), int(p2_x + 7), int(p2_y + 7)], fill=(239, 68, 68, 255), outline=(255, 255, 255, 255), width=2)
+        draw.text((int(p2_x + 9), int(p2_y - 8)), "Selesai (B)", fill=(255, 255, 255, 240))
+
+        # Draw label on firebreak line
+        mid_x = int((p1_x + p2_x) / 2)
+        mid_y = int((p1_y + p2_y) / 2)
+        draw.text((mid_x - 65, mid_y - 18), "JALUR SEKAT PEMUTUS API", fill=(245, 158, 11, 240))
 
         # Draw Wind Vector Arrow at Top Right
         arrow_cx, arrow_cy = w - 90, 80

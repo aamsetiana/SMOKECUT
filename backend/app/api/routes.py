@@ -211,6 +211,12 @@ async def analyze_aerial_image(request: AnalyzeRequest):
         "summary": {
             "risk_level": vari_res["statistics"]["risk_level"],
             "risk_description": vari_res["statistics"]["risk_description"],
+            "penjelasan_lapangan": {
+                "kondisi_semak": f"{vari_res['statistics']['dry_fuel_percentage']}% semak kering mudah terbakar",
+                "deteksi_bahaya": f"{fire_res['hotspot_count']} titik api dan {fire_res['smoke_count']} kepulan asap",
+                "instruksi_babat": f"Babat semak selebar {firebreak_res['metrics']['recommended_width_meters']}m sepanjang {firebreak_res['metrics']['cutting_length_meters']}m untuk memutus rambatan api",
+                "jarak_aman": f"Tim relawan wajib berjarak minimal {firebreak_res['metrics']['effective_safety_buffer_meters']}m dari arah api",
+            },
             "hotspots_detected": fire_res["hotspot_count"],
             "smoke_detected": fire_res["smoke_count"],
             "cutting_length_meters": firebreak_res["metrics"]["cutting_length_meters"],

@@ -215,11 +215,11 @@ class FireSmokeDetector:
             if det["class_name"] == "hotspot":
                 color_box = (239, 68, 68, 240)  # Bright Red
                 color_fill = (239, 68, 68, 40)
-                label_text = f"HOTSPOT ({int(det['confidence']*100)}%)"
+                label_text = f"TITIK API ({int(det['confidence']*100)}%)"
             else:
                 color_box = (56, 189, 248, 240)  # Light Sky Blue
                 color_fill = (56, 189, 248, 30)
-                label_text = f"ASAP ({int(det['confidence']*100)}%)"
+                label_text = f"KEPULAN ASAP ({int(det['confidence']*100)}%)"
 
             # Draw bounding box & semi-transparent fill
             draw.rectangle([x0, y0, x1, y1], outline=color_box, width=3)
