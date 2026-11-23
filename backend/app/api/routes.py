@@ -179,20 +179,28 @@ async def analyze_aerial_image(request: AnalyzeRequest):
         image_id=image_id,
     )
 
-    # Prepare preview URL for base original image/frame
+    # Prepare preview URL for base original image/frame and dynamic video
     video_url = None
+    detection_overlay_url = fire_res["overlay_url"]
+
     if target_path.suffix.lower() in ALLOWED_VIDEO_EXTENSIONS:
         original_url = f"/static/uploads/{image_id}_frame.jpg"
-        web_video = UPLOADS_DIR / f"{image_id}_web.mp4"
-        if web_video.exists():
-            video_url = f"/static/uploads/{image_id}_web.mp4"
-        elif target_path == SAMPLES_DIR / "sample_drone_fire.mp4":
-            static_sample_vid = UPLOADS_DIR / "sample_drone_fire.mp4"
-            if not static_sample_vid.exists():
-                shutil.copy(target_path, static_sample_vid)
-            video_url = "/static/uploads/sample_drone_fire.mp4"
+        annotated_video = UPLOADS_DIR / f"{image_id}_annotated.mp4"
+        if not annotated_video.exists():
+            fire_detector.annotate_video(target_path, annotated_video)
+
+        if annotated_video.exists():
+            video_url = f"/static/uploads/{image_id}_annotated.mp4"
         else:
             video_url = f"/static/uploads/{target_path.name}"
+
+        # In video mode, bounding boxes move inside the video frames
+        empty_overlay_name = f"empty_overlay_{image_id}.png"
+        empty_overlay_path = OUTPUT_DIR / empty_overlay_name
+        if not empty_overlay_path.exists():
+            empty_img = Image.new("RGBA", (dimensions["width"], dimensions["height"]), (0, 0, 0, 0))
+            empty_img.save(empty_overlay_path, "PNG")
+        detection_overlay_url = f"/static/output/{empty_overlay_name}"
     elif target_path == SAMPLES_DIR / "sample_aerial.jpg":
         # Copy to output/uploads directory so it's accessible via HTTP static
         static_sample = UPLOADS_DIR / "sample_aerial.jpg"
@@ -229,7 +237,7 @@ async def analyze_aerial_image(request: AnalyzeRequest):
             "original_image_url": original_url,
             "video_url": video_url,
             "vari_heatmap_url": vari_res["overlay_url"],
-            "detection_overlay_url": fire_res["overlay_url"],
+            "detection_overlay_url": detection_overlay_url,
             "firebreak_overlay_url": firebreak_res["overlay_url"],
         },
         "vari_analysis": vari_res["statistics"],
