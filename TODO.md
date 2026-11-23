@@ -37,7 +37,7 @@ Metodologi: **Iteratif Bertahap & Berbasis Pengujian (TDD & Verifikasi Bertingka
   - Klasifikasi zonasi: Zona Merah/Kuning (semak kering mudah terbakar, nilai $\le 0.1$) vs Zona Hijau (vegetasi lembap, nilai $> 0.1$).
   - Pembuatan heatmap visualisasi (overlay RGBA transparan 30%).
 - [x] 2.2 Tulis unit test untuk modul VARI (`backend/tests/test_vari.py`) untuk memverifikasi akurasi matematis formula dan ketahanan input citra.
-- [ ] 2.3 Implementasi modul deteksi dini asap & api (`backend/app/cv/smoke_detector.py`):
+- [x] 2.3 Implementasi modul deteksi dini asap & api (`backend/app/cv/smoke_detector.py`):
   - Integrasi inferensi model deteksi ringan (YOLOv8n / YOLOv11n) untuk frame video/foto.
   - Ekstraksi koordinat bounding box, confidence score, dan titik pusat (*centroid*).
   - Fallback deteksi berbasis *color/motion heuristic* jika bobot model belum terunduh saat offline.
