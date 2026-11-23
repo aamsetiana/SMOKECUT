@@ -58,6 +58,8 @@ def test_analyze_sample_image():
     assert "summary" in data
     assert data["summary"]["risk_level"] in ("TINGGI", "SEDANG", "RENDAH")
     assert data["summary"]["cutting_length_meters"] > 0
+    assert data["summary"]["recommended_width_meters"] in (3.0, 4.0, 5.0)
+    assert data["summary"]["effective_safety_buffer_meters"] >= 20.0
 
     assert "layers" in data
     assert "vari_heatmap_url" in data["layers"]
@@ -148,6 +150,8 @@ def test_analyze_auto_wind_endpoint():
     assert data["firebreak_plan"]["wind"]["is_auto_detected"] is True
     assert "estimasi_angin" in data["summary"]["penjelasan_lapangan"]
     assert data["summary"]["cutting_length_meters"] > 0
+    assert data["summary"]["recommended_width_meters"] in (3.0, 4.0, 5.0)
+    assert data["summary"]["effective_safety_buffer_meters"] >= 20.0
 
 
 def test_analyze_explicit_auto_wind_endpoint():

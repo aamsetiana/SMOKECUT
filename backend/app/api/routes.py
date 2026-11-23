@@ -25,8 +25,8 @@ class AnalyzeRequest(BaseModel):
     image_id: str = Field(..., description="Unique ID of previously uploaded image or 'sample'")
     wind_direction: Optional[Union[str, float]] = Field(default=None, description="Wind direction in degrees (0-360), compass string, or None/'auto' for automatic visual detection")
     wind_speed: Optional[float] = Field(default=None, description="Wind velocity in km/h or None for automatic visual estimation")
-    safety_buffer: float = Field(default=25.0, description="Base safety buffer in meters for MPA crew")
-    firebreak_width: float = Field(default=4.0, description="Recommended firebreak cutting width in meters (3 - 5m)")
+    safety_buffer: Optional[float] = Field(default=None, description="Base safety buffer in meters or None for automatic AI estimation")
+    firebreak_width: Optional[float] = Field(default=None, description="Recommended firebreak cutting width in meters or None for automatic AI estimation")
 
 
 class DispatchRequest(BaseModel):
@@ -191,6 +191,27 @@ async def analyze_aerial_image(request: AnalyzeRequest):
             wind_spd = wind_est["speed_kmh"]
         wind_estimation = wind_est
 
+    # Resolve Safety Buffer & Firebreak Width (Adaptive AI determination if not provided)
+    adaptive_width = request.firebreak_width
+    adaptive_buffer = request.safety_buffer
+
+    # If width is not explicitly specified, calculate based on risk level and fuel dryness
+    if adaptive_width is None or adaptive_width <= 0:
+        if fire_res["hotspot_count"] > 0:
+            if wind_spd >= 20.0 or vari_res["statistics"]["dry_fuel_percentage"] > 50.0:
+                adaptive_width = 5.0
+            else:
+                adaptive_width = 4.0
+        else:
+            adaptive_width = 3.0 if vari_res["statistics"]["dry_fuel_percentage"] < 35.0 else 4.0
+
+    # If safety buffer is not explicitly specified, calculate based on threat severity
+    if adaptive_buffer is None or adaptive_buffer <= 0:
+        if fire_res["hotspot_count"] > 0:
+            adaptive_buffer = 25.0 + min(15.0, fire_res["hotspot_count"] * 5.0)
+        else:
+            adaptive_buffer = 20.0
+
     # 3. Firebreak Route Optimizer
     firebreak_res = firebreak_optimizer.optimize(
         image_dimensions=dimensions,
@@ -198,8 +219,8 @@ async def analyze_aerial_image(request: AnalyzeRequest):
         hotspots=fire_res["detections"],
         wind_direction=wind_dir,
         wind_speed_kmh=wind_spd,
-        safety_buffer_meters=request.safety_buffer,
-        firebreak_width_meters=request.firebreak_width,
+        safety_buffer_meters=adaptive_buffer,
+        firebreak_width_meters=adaptive_width,
         image_id=image_id,
         is_auto_wind=bool(wind_estimation is not None),
     )
