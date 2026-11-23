@@ -100,11 +100,16 @@
           <p class="text-xs text-slate-400 mt-1">Mendukung format JPG, PNG, atau rekaman MP4</p>
         </div>
 
-        <div class="mt-3 flex items-center justify-between">
-          <span class="text-xs text-slate-400">Atau gunakan sampel uji lapangan:</span>
-          <button onclick="loadSampleImage()" class="text-xs font-semibold px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-sky-400 border border-sky-500/30 rounded-lg transition shadow-sm">
-            ⚡ Muat Sampel Demo
-          </button>
+        <div class="mt-3 flex items-center justify-between flex-wrap gap-2">
+          <span class="text-xs text-slate-400">Sampel Uji:</span>
+          <div class="flex gap-2">
+            <button onclick="loadSampleImage()" class="text-xs font-semibold px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-sky-400 border border-sky-500/30 rounded-lg transition shadow-sm">
+              📷 Foto Demo
+            </button>
+            <button onclick="loadSampleVideo()" class="text-xs font-semibold px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-amber-400 border border-amber-500/30 rounded-lg transition shadow-sm">
+              🎬 Video Drone (.mp4)
+            </button>
+          </div>
         </div>
       </section>
 
@@ -372,6 +377,12 @@
     function loadSampleImage() {
       currentImageId = 'sample';
       document.getElementById('upload-label').textContent = '✅ Sampel Demo Terpilih: sample_aerial.jpg';
+      executeAnalysis();
+    }
+
+    function loadSampleVideo() {
+      currentImageId = 'sample_video';
+      document.getElementById('upload-label').textContent = '🎬 Sampel Video Terpilih: sample_drone_fire.mp4';
       executeAnalysis();
     }
 
