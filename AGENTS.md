@@ -188,3 +188,27 @@ Setiap agen pengembang otonom yang bekerja pada repositori ini **wajib mematuhi 
 3. **Disiplin Update `TODO.md` & Git Commit Deskriptif**:
    - Setiap kali menyelesaikan satu unit tugas/subtugas, perbarui status item pekerjaan di `TODO.md` dari `[ ]` menjadi `[x]`.
    - Lakukan `git commit` dengan pesan yang deskriptif mengikuti konvensi *Conventional Commits* (contoh: `feat: implement VARI index calculation in vari_processor.py`, `test: add unit tests for firebreak pathfinder`, `fix: handle zero division in RGB channels`).
+
+---
+
+## 6. Team Roles, Code Ownership & Branching Rules
+
+Proyek SEKAT-AI dikelola oleh tim 3 orang dengan pembagian peran dan kepemilikan kode (*code ownership*) yang tegas:
+
+### A. Pembagian Peran Tim (Team Roles)
+| Anggota | Peran / Jabatan | Wilayah Kepemilikan (Code Ownership) | Tanggung Jawab Utama |
+|---|---|---|---|
+| **@Aam** | **Project Manager, System Architect & AI Integration Lead** | Root config, `AGENTS.md`, `TODO.md`, `docs/`, branch `main` | Mengelola arsitektur keseluruhan, standarisasi kontrak API (`docs/API_CONTRACT.md`), review & merge branch ke `main`, pengujian *end-to-end*, dan persiapan finalisasi proposal AIRIMPACT 2026. |
+| **@Apliy** | **Backend & Computer Vision Engineer** | `backend/` (seluruh modul core, cv, services, api) & `backend/tests/` | Mengembangkan formula VARI, deteksi asap & api awal, algoritma rute sekat bakar, layanan cuaca/angin, WhatsApp alert dispatcher, serta memastikan seluruh unit test lulus 100%. |
+| **@Indra** | **Frontend & UI/UX Engineer** | `frontend/` (seluruh komponen, services, styles, assets) | Mengembangkan dashboard web interaktif, media uploader (drag & drop), visualizer multi-layer (canvas drone view), panel kontrol parameter angin, kartu metrik, dan modal simulasi WhatsApp. |
+
+### B. Aturan Isolasi Kode (Boundary Rules)
+1. **Zona Eksklusif Backend**: @Apliy memiliki kepemilikan penuh atas direktori `backend/`. Anggota atau agen lain DILARANG memodifikasi file backend tanpa koordinasi dengan @Apliy.
+2. **Zona Eksklusif Frontend**: @Indra memiliki kepemilikan penuh atas direktori `frontend/`. Anggota atau agen lain DILARANG memodifikasi file frontend tanpa koordinasi dengan @Indra.
+3. **Penyambung Antarmuka**: Seluruh interaksi data antara frontend dan backend WAJIB mengacu secara ketat pada dokumen kontrak resmi di `docs/API_CONTRACT.md` yang disetujui oleh @Aam.
+
+### C. Alur Kerja Percabangan Git (Git Branching Model)
+- **`main`**: Branch produksi dan rilis stabil. Hanya @Aam yang berwenang melakukan merge ke branch ini setelah seluruh pengujian lulus dan integrasi terverifikasi.
+- **`feat/backend-apliy`**: Branch kerja aktif @Apliy untuk fitur-fitur backend, optimasi CV, dan pengujian unit.
+- **`feat/frontend-indra`**: Branch kerja aktif @Indra untuk implementasi UI, komponen React, styling Tailwind, dan interaksi dashboard.
+
