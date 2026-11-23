@@ -171,10 +171,21 @@ class FirebreakOptimizer:
         draw.ellipse([int(p2_x - 7), int(p2_y - 7), int(p2_x + 7), int(p2_y + 7)], fill=(239, 68, 68, 255), outline=(255, 255, 255, 255), width=2)
         draw.text((int(p2_x + 9), int(p2_y - 8)), "Selesai (B)", fill=(255, 255, 255, 240))
 
-        # Draw label on firebreak line
+        # Draw label on firebreak line with explicit dimensions in meters
         mid_x = int((p1_x + p2_x) / 2)
         mid_y = int((p1_y + p2_y) / 2)
-        draw.text((mid_x - 65, mid_y - 18), "JALUR SEKAT PEMUTUS API", fill=(245, 158, 11, 240))
+        draw.text((mid_x - 70, mid_y - 24), "JALUR SEKAT PEMUTUS API (AI)", fill=(245, 158, 11, 245))
+        draw.text((mid_x - 85, mid_y - 8), f"Babat: {int(cut_length_meters)}m x Lebar: {int(firebreak_width_meters)}m", fill=(255, 255, 255, 250))
+        draw.text((mid_x - 65, mid_y + 8), f"Jarak Aman: {int(effective_buffer_m)}m", fill=(14, 165, 233, 240))
+
+        # Draw Tactical Recommendation Card on Bottom-Left of Overlay
+        card_w, card_h = 320, 66
+        cx0, cy0 = 20, max(20, h - card_h - 20)
+        cx1, cy1 = cx0 + card_w, cy0 + card_h
+        draw.rectangle([cx0, cy0, cx1, cy1], fill=(15, 23, 42, 225), outline=(245, 158, 11, 240), width=2)
+        draw.text((cx0 + 12, cy0 + 10), "REKOMENDASI SEKAT BAKAR OTOMATIS (AI)", fill=(245, 158, 11, 255))
+        draw.text((cx0 + 12, cy0 + 26), f"Panjang: {cut_length_meters}m  |  Lebar: {firebreak_width_meters}m", fill=(255, 255, 255, 245))
+        draw.text((cx0 + 12, cy0 + 44), f"Jarak Aman Tim: {int(effective_buffer_m)}m dari api", fill=(56, 189, 248, 245))
 
         # Draw Wind Vector Arrow at Top Right
         arrow_cx, arrow_cy = w - 90, 80

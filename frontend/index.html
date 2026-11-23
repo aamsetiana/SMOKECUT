@@ -113,17 +113,31 @@
         </div>
       </section>
 
-      <!-- Step 2: Environmental & Firebreak Parameters -->
+      <!-- Step 2: Environmental & Firebreak Parameters (AI Autonomous Mode) -->
       <section class="bg-[#1E293B] border border-slate-700/60 rounded-2xl p-5 shadow-xl space-y-4">
-        <h2 class="text-xs font-bold uppercase tracking-wider text-slate-400">2. Parameter Lingkungan & Sekat</h2>
+        <div class="flex items-center justify-between">
+          <h2 class="text-xs font-bold uppercase tracking-wider text-slate-400">2. Parameter Lingkungan & Sekat</h2>
+          <span class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 font-semibold flex items-center gap-1">
+            🤖 Otomatis AI (Aktif)
+          </span>
+        </div>
 
-        <!-- Wind Direction Slider -->
-        <div>
-          <div class="flex justify-between text-xs mb-1">
-            <span class="text-slate-300 font-medium">Arah Embusan Angin</span>
-            <span id="wind-dir-label" class="text-sky-400 font-bold font-mono">135° — Tenggara (SE)</span>
+        <div class="p-3 rounded-xl bg-slate-900/80 border border-emerald-500/30 text-xs text-slate-300">
+          <div class="flex items-center gap-1.5 font-semibold text-emerald-400 mb-0.5">
+            <span>✨ Mode Otomatis Penuh (Autonomous Drone-Vision)</span>
           </div>
-          <input type="range" id="wind-direction" min="0" max="360" value="135" class="w-full accent-sky-500 h-1.5 bg-slate-700 rounded-lg cursor-pointer" oninput="updateWindLabel(this.value)" />
+          <p class="text-[11px] text-slate-400 leading-relaxed">
+            Arah angin, kecepatan angin, lebar sekat, dan safety buffer dihitung otomatis oleh AI Vision begitu api terdeteksi. Kontrol manual di bawah dinonaktifkan.
+          </p>
+        </div>
+
+        <!-- Wind Direction Slider (Disabled / AI Monitored) -->
+        <div class="opacity-60">
+          <div class="flex justify-between text-xs mb-1">
+            <span class="text-slate-300 font-medium">Arah Embusan Angin (Deteksi AI)</span>
+            <span id="wind-dir-label" class="text-sky-400 font-bold font-mono">Auto (Otomatis Visual)</span>
+          </div>
+          <input type="range" id="wind-direction" min="0" max="360" value="135" disabled class="w-full accent-sky-500 h-1.5 bg-slate-700 rounded-lg cursor-not-allowed" />
           <div class="flex justify-between text-[10px] text-slate-500 font-mono mt-0.5">
             <span>U (0°)</span>
             <span>T (90°)</span>
@@ -133,38 +147,38 @@
           </div>
         </div>
 
-        <!-- Wind Speed Slider -->
-        <div>
+        <!-- Wind Speed Slider (Disabled / AI Monitored) -->
+        <div class="opacity-60">
           <div class="flex justify-between text-xs mb-1">
-            <span class="text-slate-300 font-medium">Kecepatan Angin</span>
-            <span id="wind-speed-label" class="text-sky-400 font-bold font-mono">14 km/jam</span>
+            <span class="text-slate-300 font-medium">Kecepatan Angin (Estimasi AI)</span>
+            <span id="wind-speed-label" class="text-sky-400 font-bold font-mono">Auto (Otomatis Visual)</span>
           </div>
-          <input type="range" id="wind-speed" min="1" max="50" value="14" class="w-full accent-sky-500 h-1.5 bg-slate-700 rounded-lg cursor-pointer" oninput="document.getElementById('wind-speed-label').textContent = this.value + ' km/jam'" />
+          <input type="range" id="wind-speed" min="1" max="50" value="14" disabled class="w-full accent-sky-500 h-1.5 bg-slate-700 rounded-lg cursor-not-allowed" />
         </div>
 
-        <!-- Safety Buffer Slider -->
-        <div>
+        <!-- Safety Buffer Slider (Disabled / AI Monitored) -->
+        <div class="opacity-60">
           <div class="flex justify-between text-xs mb-1">
-            <span class="text-slate-300 font-medium">Jarak Aman Tim MPA (Safety Buffer)</span>
-            <span id="safety-buffer-label" class="text-amber-400 font-bold font-mono">25 meter</span>
+            <span class="text-slate-300 font-medium">Jarak Aman Tim MPA (Dihitung AI)</span>
+            <span id="safety-buffer-label" class="text-amber-400 font-bold font-mono">Auto (Adaptif Risiko)</span>
           </div>
-          <input type="range" id="safety-buffer" min="15" max="50" value="25" class="w-full accent-amber-500 h-1.5 bg-slate-700 rounded-lg cursor-pointer" oninput="document.getElementById('safety-buffer-label').textContent = this.value + ' meter'" />
-          <p class="text-[11px] text-slate-400 mt-1">Dihitung otomatis membesar jika kecepatan angin meningkat.</p>
+          <input type="range" id="safety-buffer" min="15" max="50" value="25" disabled class="w-full accent-amber-500 h-1.5 bg-slate-700 rounded-lg cursor-not-allowed" />
+          <p class="text-[11px] text-slate-500 mt-1">Disesuaikan otomatis dengan ukuran api dan kecepatan angin.</p>
         </div>
 
-        <!-- Firebreak Width Buttons -->
-        <div>
-          <label class="text-xs font-medium text-slate-300 block mb-2">Lebar Pemotongan Sekat Bakar</label>
+        <!-- Firebreak Width Buttons (Disabled / AI Monitored) -->
+        <div class="opacity-60">
+          <label class="text-xs font-medium text-slate-300 block mb-2">Lebar Pemotongan Sekat (Rekomendasi AI)</label>
           <div class="grid grid-cols-3 gap-2">
-            <button type="button" onclick="setWidth(3)" id="btn-w3" class="py-2 text-xs font-semibold rounded-lg border border-slate-700 bg-slate-800 text-slate-300 hover:border-slate-600 transition">3 Meter</button>
-            <button type="button" onclick="setWidth(4)" id="btn-w4" class="py-2 text-xs font-semibold rounded-lg border border-sky-500 bg-sky-500/20 text-sky-300 font-bold shadow-sm transition">4 Meter</button>
-            <button type="button" onclick="setWidth(5)" id="btn-w5" class="py-2 text-xs font-semibold rounded-lg border border-slate-700 bg-slate-800 text-slate-300 hover:border-slate-600 transition">5 Meter</button>
+            <button type="button" disabled id="btn-w3" class="py-2 text-xs font-semibold rounded-lg border border-slate-700 bg-slate-800 text-slate-400 cursor-not-allowed transition">3 Meter</button>
+            <button type="button" disabled id="btn-w4" class="py-2 text-xs font-semibold rounded-lg border border-emerald-500/50 bg-emerald-500/20 text-emerald-300 font-bold shadow-sm cursor-not-allowed transition">4 Meter (AI)</button>
+            <button type="button" disabled id="btn-w5" class="py-2 text-xs font-semibold rounded-lg border border-slate-700 bg-slate-800 text-slate-400 cursor-not-allowed transition">5 Meter</button>
           </div>
         </div>
 
         <!-- Trigger Button -->
         <button id="btn-analyze" onclick="executeAnalysis()" class="w-full mt-2 py-3.5 px-4 rounded-xl bg-gradient-to-r from-sky-600 to-blue-600 hover:from-sky-500 hover:to-blue-500 font-bold text-sm tracking-wide text-white shadow-lg shadow-sky-600/30 active:scale-[0.98] transition flex items-center justify-center gap-2">
-          <span>⚡ Jalankan Analisis AI Lengkap</span>
+          <span>⚡ Deteksi Api & Buat Sekat Otomatis</span>
         </button>
       </section>
 
@@ -239,6 +253,9 @@
             </label>
           </div>
         </div>
+
+        <!-- Real-time Tactical AI Recommendation Banner -->
+        <div id="ai-recommendation-banner" class="hidden mb-3 p-3.5 rounded-xl bg-slate-900/90 border border-amber-500/40 shadow-lg text-xs transition"></div>
 
         <!-- Canvas Container -->
         <div id="viewer-container" class="relative w-full aspect-[4/3] max-h-[580px] bg-slate-950 rounded-xl border border-slate-800 overflow-hidden flex items-center justify-center">
@@ -418,11 +435,8 @@
       document.getElementById('analysis-status').className = 'text-[11px] font-medium px-2 py-0.5 rounded bg-sky-500/20 text-sky-400 border border-sky-500/30';
 
       const payload = {
-        image_id: currentImageId,
-        wind_direction: parseFloat(document.getElementById('wind-direction').value),
-        wind_speed: parseFloat(document.getElementById('wind-speed').value),
-        safety_buffer: parseFloat(document.getElementById('safety-buffer').value),
-        firebreak_width: currentWidthMeters
+        image_id: currentImageId
+        // Parameter angin, safety buffer, dan lebar sekat dihitung otomatis oleh AI
       };
 
       try {
@@ -446,7 +460,7 @@
         document.getElementById('analysis-status').textContent = 'Error';
       } finally {
         btn.disabled = false;
-        btn.innerHTML = `<span>⚡ Jalankan Analisis AI Lengkap</span>`;
+        btn.innerHTML = `<span>⚡ Deteksi Api & Buat Sekat Otomatis</span>`;
       }
     }
 
@@ -481,8 +495,58 @@
 
       toggleLayers();
 
-      // Update Metrics Card
+      // Update AI Indicators in Step 2 Panel
+      if (data.firebreak_plan && data.firebreak_plan.wind) {
+        const w = data.firebreak_plan.wind;
+        document.getElementById('wind-direction').value = w.direction_degrees;
+        document.getElementById('wind-dir-label').textContent = `${w.direction_degrees}° — ${w.direction_compass} (AI)`;
+        document.getElementById('wind-speed').value = w.speed_kmh;
+        document.getElementById('wind-speed-label').textContent = `${w.speed_kmh} km/jam (AI)`;
+      }
+
       const s = data.summary;
+      if (s) {
+        document.getElementById('safety-buffer').value = s.effective_safety_buffer_meters;
+        document.getElementById('safety-buffer-label').textContent = `${s.effective_safety_buffer_meters} meter (AI)`;
+        const recW = Math.round(s.recommended_width_meters);
+        [3, 4, 5].forEach(wVal => {
+          const btn = document.getElementById('btn-w' + wVal);
+          if (btn) {
+            if (wVal === recW) {
+              btn.className = 'py-2 text-xs font-bold rounded-lg border border-emerald-500 bg-emerald-500/20 text-emerald-300 shadow-sm cursor-not-allowed';
+              btn.textContent = wVal + 'm (Rekomendasi AI)';
+            } else {
+              btn.className = 'py-2 text-xs font-semibold rounded-lg border border-slate-700 bg-slate-800 text-slate-500 opacity-40 cursor-not-allowed';
+              btn.textContent = wVal + ' Meter';
+            }
+          }
+        });
+
+        // Show tactical recommendation banner above aerial canvas
+        const banner = document.getElementById('ai-recommendation-banner');
+        if (banner) {
+          banner.classList.remove('hidden');
+          banner.innerHTML = `
+            <div class="flex items-start justify-between gap-3">
+              <div class="flex items-start gap-2.5">
+                <span class="text-xl">🛡️</span>
+                <div>
+                  <div class="font-bold text-amber-400 text-xs uppercase tracking-wide">Rekomendasi Pemotongan Sekat Lahan (Computer Vision AI)</div>
+                  <div class="text-slate-200 text-xs mt-0.5 leading-relaxed">
+                    Babat semak selebar <span class="font-bold text-emerald-400">${s.recommended_width_meters} Meter</span> sepanjang <span class="font-bold text-amber-300">${s.cutting_length_meters} Meter</span>.
+                    Jarak aman tim minimal <span class="font-bold text-sky-400">${s.effective_safety_buffer_meters} Meter</span> dari titik api aktif.
+                  </div>
+                </div>
+              </div>
+              <span class="text-[10px] px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/30 font-mono whitespace-nowrap">
+                Regu 5 Orang (~${s.clearing_time_hours} Jam)
+              </span>
+            </div>
+          `;
+        }
+      }
+
+      // Update Metrics Card
       document.getElementById('metrics-card').classList.remove('hidden');
       document.getElementById('badge-risk').textContent = 'RISIKO ' + s.risk_level;
       document.getElementById('badge-risk').className = s.risk_level === 'TINGGI' ? 'text-xs font-bold px-2.5 py-0.5 rounded-full bg-rose-500/20 text-rose-400 border border-rose-500/40' : 'text-xs font-bold px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/40';
