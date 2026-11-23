@@ -249,6 +249,7 @@
           </div>
 
           <!-- Composite Layers -->
+          <video id="video-original" class="layer-canvas hidden" autoplay loop muted playsinline></video>
           <img id="img-original" class="layer-canvas hidden" alt="Original Drone" />
           <img id="img-vari" class="layer-canvas hidden" alt="VARI Overlay" />
           <img id="img-detections" class="layer-canvas hidden" alt="Detections Overlay" />
@@ -452,13 +453,28 @@
     function renderAnalysisResults(data) {
       document.getElementById('empty-state').classList.add('hidden');
 
-      // Update Layer Images
+      // Update Layer Media
+      const vidOrig = document.getElementById('video-original');
       const imgOrig = document.getElementById('img-original');
       const imgVari = document.getElementById('img-vari');
       const imgDet = document.getElementById('img-detections');
       const imgFire = document.getElementById('img-firebreak');
 
-      imgOrig.src = data.layers.original_image_url + '?t=' + Date.now();
+      const isVideo = data.media_type === 'video' && (data.video_url || (data.layers && data.layers.video_url));
+      const videoSrc = isVideo ? (data.video_url || data.layers.video_url) : null;
+
+      if (isVideo && videoSrc) {
+        imgOrig.classList.add('hidden');
+        vidOrig.src = videoSrc;
+        vidOrig.classList.remove('hidden');
+        vidOrig.play().catch(e => console.log('Autoplay:', e));
+      } else {
+        try { vidOrig.pause(); } catch(e){}
+        vidOrig.classList.add('hidden');
+        imgOrig.src = data.layers.original_image_url + '?t=' + Date.now();
+        imgOrig.classList.remove('hidden');
+      }
+
       imgVari.src = data.layers.vari_heatmap_url + '?t=' + Date.now();
       imgDet.src = data.layers.detection_overlay_url + '?t=' + Date.now();
       imgFire.src = data.layers.firebreak_overlay_url + '?t=' + Date.now();
@@ -483,7 +499,15 @@
       const det = document.getElementById('layer-detections').checked;
       const fire = document.getElementById('layer-firebreak').checked;
 
-      document.getElementById('img-original').classList.toggle('hidden', !orig);
+      const isVideo = latestAnalysisData && latestAnalysisData.media_type === 'video';
+      if (isVideo) {
+        document.getElementById('video-original').classList.toggle('hidden', !orig);
+        document.getElementById('img-original').classList.add('hidden');
+      } else {
+        document.getElementById('img-original').classList.toggle('hidden', !orig);
+        document.getElementById('video-original').classList.add('hidden');
+      }
+
       document.getElementById('img-vari').classList.toggle('hidden', !vari);
       document.getElementById('img-detections').classList.toggle('hidden', !det);
       document.getElementById('img-firebreak').classList.toggle('hidden', !fire);

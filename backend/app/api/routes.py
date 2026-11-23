@@ -66,6 +66,19 @@ async def upload_media(file: UploadFile = File(...)):
             pass
     elif ext in ALLOWED_VIDEO_EXTENSIONS:
         media_type = "video"
+        # Transcode or repackage to web-compatible H.264 MP4 for smooth browser playback
+        web_mp4 = UPLOADS_DIR / f"{image_id}_web.mp4"
+        try:
+            import subprocess
+            subprocess.run(
+                ["ffmpeg", "-y", "-i", str(dest_path), "-c:v", "libx264", "-pix_fmt", "yuv420p", "-movflags", "+faststart", str(web_mp4)],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                timeout=20,
+            )
+        except Exception:
+            pass
+
         try:
             import cv2
             cap = cv2.VideoCapture(str(dest_path))
@@ -167,8 +180,19 @@ async def analyze_aerial_image(request: AnalyzeRequest):
     )
 
     # Prepare preview URL for base original image/frame
+    video_url = None
     if target_path.suffix.lower() in ALLOWED_VIDEO_EXTENSIONS:
         original_url = f"/static/uploads/{image_id}_frame.jpg"
+        web_video = UPLOADS_DIR / f"{image_id}_web.mp4"
+        if web_video.exists():
+            video_url = f"/static/uploads/{image_id}_web.mp4"
+        elif target_path == SAMPLES_DIR / "sample_drone_fire.mp4":
+            static_sample_vid = UPLOADS_DIR / "sample_drone_fire.mp4"
+            if not static_sample_vid.exists():
+                shutil.copy(target_path, static_sample_vid)
+            video_url = "/static/uploads/sample_drone_fire.mp4"
+        else:
+            video_url = f"/static/uploads/{target_path.name}"
     elif target_path == SAMPLES_DIR / "sample_aerial.jpg":
         # Copy to output/uploads directory so it's accessible via HTTP static
         static_sample = UPLOADS_DIR / "sample_aerial.jpg"
@@ -182,6 +206,8 @@ async def analyze_aerial_image(request: AnalyzeRequest):
     response_payload = {
         "status": "success",
         "image_id": image_id,
+        "media_type": "video" if video_url else "image",
+        "video_url": video_url,
         "summary": {
             "risk_level": vari_res["statistics"]["risk_level"],
             "risk_description": vari_res["statistics"]["risk_description"],
@@ -195,6 +221,7 @@ async def analyze_aerial_image(request: AnalyzeRequest):
         },
         "layers": {
             "original_image_url": original_url,
+            "video_url": video_url,
             "vari_heatmap_url": vari_res["overlay_url"],
             "detection_overlay_url": fire_res["overlay_url"],
             "firebreak_overlay_url": firebreak_res["overlay_url"],
