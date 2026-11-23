@@ -41,13 +41,13 @@ Metodologi: **Iteratif Bertahap & Berbasis Pengujian (TDD & Verifikasi Bertingka
   - Integrasi inferensi model deteksi ringan (YOLOv8n / YOLOv11n) untuk frame video/foto.
   - Ekstraksi koordinat bounding box, confidence score, dan titik pusat (*centroid*).
   - Fallback deteksi berbasis *color/motion heuristic* jika bobot model belum terunduh saat offline.
-- [ ] 2.4 Implementasi algoritma penentu jalur sekat bakar optimal (`backend/app/cv/firebreak_planner.py`):
+- [x] 2.4 Implementasi algoritma penentu jalur sekat bakar optimal (`backend/app/cv/firebreak_planner.py`):
   - Menghitung arah perambatan berdasarkan kontur zona semak kering dan vektor angin (arah & kecepatan).
   - Kalkulasi jalur pembabatan terpendek di depan arah api dengan spesifikasi lebar sekat 3–5 meter.
   - Perhitungan *safety buffer* (jarak aman minimal tim MPA dari potensi titik api).
   - Estimasi panjang jalur babatan (dalam meter) dan konversi ke koordinat poliline.
-- [ ] 2.5 Tulis unit test untuk optimizer sekat bakar (`backend/tests/test_firebreak.py`).
-- [ ] 2.6 Implementasi service simulasi data angin & cuaca (`backend/app/services/weather_service.py`):
+- [x] 2.5 Tulis unit test untuk optimizer sekat bakar (`backend/tests/test_firebreak.py`).
+- [x] 2.6 Implementasi service simulasi data angin & cuaca (`backend/app/services/weather_service.py`):
   - Dukungan parameter manual (kecepatan & arah mata angin) untuk mode patroli lapangan offline.
   - Mock generator data arah angin realistis.
 - [ ] 2.7 Implementasi WhatsApp Alert Dispatcher (`backend/app/services/notification_service.py`):
