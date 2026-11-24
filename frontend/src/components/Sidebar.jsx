@@ -16,7 +16,8 @@ export default function Sidebar({
   activeTab,
   setActiveTab,
   onLogout,
-  unreadNotifications = 3,
+  warningCount = 0,
+  user,
   isCollapsed = false,
   setIsCollapsed,
   isMobileOpen = false,
@@ -27,7 +28,7 @@ export default function Sidebar({
     { id: 'analysis', label: 'Analisis AI', icon: Flame },
     { id: 'risk_map', label: 'Peta Risiko', icon: Map },
     { id: 'firebreak', label: 'Sekat Bakar', icon: Spline },
-    { id: 'notifications', label: 'Notifikasi', icon: Bell, badge: unreadNotifications },
+    { id: 'notifications', label: 'Notifikasi', icon: Bell, badge: warningCount },
     { id: 'history', label: 'Riwayat', icon: RotateCcw },
     { id: 'settings', label: 'Pengaturan', icon: Settings },
   ];
@@ -127,14 +128,14 @@ export default function Sidebar({
                     <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-white' : 'text-slate-500 group-hover:text-emerald-600'}`} />
                     {!isCollapsed && <span>{item.label}</span>}
                   </div>
-                  {!isCollapsed && item.badge && (
+                  {!isCollapsed && item.badge > 0 && (
                     <span className={`px-1.5 py-0.5 text-[10px] font-bold rounded-full ${
                       isActive ? 'bg-white text-emerald-700' : 'bg-rose-500 text-white'
                     }`}>
                       {item.badge}
                     </span>
                   )}
-                  {isCollapsed && item.badge && (
+                  {isCollapsed && item.badge > 0 && (
                     <span className="absolute top-1.5 right-2 w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
                   )}
                 </button>
@@ -146,14 +147,14 @@ export default function Sidebar({
         {/* User Profile Footer */}
         <div className={`border-t border-slate-100 bg-slate-50/60 transition-all ${isCollapsed ? 'p-2' : 'p-4'}`}>
           <div className={`flex items-center ${isCollapsed ? 'flex-col gap-2 justify-center' : 'justify-between'}`}>
-            <div className="flex items-center gap-3 min-w-0" title="Indra Agustiawan (Tim MPA)">
+            <div className="flex items-center gap-3 min-w-0" title={`${user.name} (${user.role})`}>
               <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-emerald-600 to-green-500 flex items-center justify-center text-xs font-black text-white ring-2 ring-emerald-500/30 shadow-sm shrink-0">
-                IA
+                {user.name.split(' ').map((w) => w[0]).slice(0, 2).join('')}
               </div>
               {!isCollapsed && (
                 <div className="text-left min-w-0 truncate">
-                  <p className="text-xs font-bold text-slate-900 leading-tight truncate">Indra Agustiawan</p>
-                  <p className="text-[11px] text-emerald-700 font-medium">Tim MPA</p>
+                  <p className="text-xs font-bold text-slate-900 leading-tight truncate">{user.name}</p>
+                  <p className="text-[11px] text-emerald-700 font-medium">{user.role}</p>
                 </div>
               )}
             </div>

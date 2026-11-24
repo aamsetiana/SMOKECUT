@@ -1,36 +1,16 @@
 import React, { useState } from 'react';
-import { X, Send, Copy, Check, ExternalLink, Loader2 } from 'lucide-react';
-import { dispatchWhatsApp } from '../services/api';
+import { X, Send, Copy, Check, ExternalLink } from 'lucide-react';
 
-export default function WhatsAppModal({ isOpen, onClose, currentAnalysis }) {
-  if (!isOpen) return null;
-
-  const [recipientGroup, setRecipientGroup] = useState('mpa'); // 'mpa' or 'residents'
-  const [phone, setPhone] = useState('6281234567890');
+/** dispatches: [MPA message, downwind residents message] from POST /api/dispatch-whatsapp. */
+export default function WhatsAppModal({ dispatches, onClose }) {
+  const [groupIndex, setGroupIndex] = useState(0);
+  const [phone, setPhone] = useState('');
   const [copied, setCopied] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [dispatchResult, setDispatchResult] = useState(null);
+  const [message, setMessage] = useState(dispatches[0].message_text);
 
-  const mpaDefaultText = `🚨 *SEKAT-AI ALERT: REKOMENDASI SEKAT BAKAR* 🚨
-Titik api awal dan semak kering terdeteksi di lokasi koordinat (-7.12340, 110.56780).
-• Rekomendasi Jalur Sekat: ± 3.8 km
-• Lebar Babatan: 4.0 meter
-• Arah Angin: Tenggara (14 km/jam)
-• Safety Buffer: 35 meter
-Mohon Tim MPA segera menuju koordinat untuk pembabatan preventif.`;
-
-  const residentDefaultText = `⚠️ *PERINGATAN DINI KUALITAS UDARA (PM2.5)* ⚠️
-Diinformasikan kepada warga di area Kuningan & sekitarnya:
-Terpantau potensi kepulan asap kebakaran semak di area barat.
-• Tingkat Partikel PM2.5: Waspada (68 µg/m³)
-• Arah Sebaran Asap: Mengarah ke Timur
-Dihimbau untuk mengenakan masker dan menutup ventilasi sementara.`;
-
-  const [message, setMessage] = useState(recipientGroup === 'mpa' ? mpaDefaultText : residentDefaultText);
-
-  const handleGroupChange = (group) => {
-    setRecipientGroup(group);
-    setMessage(group === 'mpa' ? mpaDefaultText : residentDefaultText);
+  const handleGroupChange = (index) => {
+    setGroupIndex(index);
+    setMessage(dispatches[index].message_text);
   };
 
   const handleCopy = () => {
@@ -39,29 +19,9 @@ Dihimbau untuk mengenakan masker dan menutup ventilasi sementara.`;
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const handleSend = async () => {
-    setLoading(true);
-    try {
-      const payload = {
-        analysis_data: currentAnalysis || null,
-        image_id: currentAnalysis?.image_id || 'sample_aerial',
-      };
-      const res = await dispatchWhatsApp(payload);
-      setDispatchResult(res);
-
-      // Open WhatsApp web in new tab
-      const cleanPhone = phone.replace(/[^0-9]/g, '');
-      const encodedMsg = encodeURIComponent(message);
-      const waUrl = `https://api.whatsapp.com/send?phone=${cleanPhone}&text=${encodedMsg}`;
-      window.open(waUrl, '_blank');
-    } catch (err) {
-      console.error(err);
-      // Fallback direct open
-      const encodedMsg = encodeURIComponent(message);
-      window.open(`https://api.whatsapp.com/send?text=${encodedMsg}`, '_blank');
-    } finally {
-      setLoading(false);
-    }
+  const handleSend = () => {
+    const number = phone.replace(/[^0-9]/g, '');
+    window.open(`https://wa.me/${number}?text=${encodeURIComponent(message)}`, '_blank', 'noopener');
   };
 
   return (
@@ -92,28 +52,20 @@ Dihimbau untuk mengenakan masker dan menutup ventilasi sementara.`;
           <div>
             <label className="text-xs font-bold text-slate-700 block mb-1.5">Target Penerima</label>
             <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={() => handleGroupChange('mpa')}
-                className={`py-2 px-3 rounded-xl text-xs font-bold transition border ${
-                  recipientGroup === 'mpa'
-                    ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
-                    : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
-                }`}
-              >
-                Regu Tim MPA (Taktis)
-              </button>
-              <button
-                type="button"
-                onClick={() => handleGroupChange('residents')}
-                className={`py-2 px-3 rounded-xl text-xs font-bold transition border ${
-                  recipientGroup === 'residents'
-                    ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
-                    : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
-                }`}
-              >
-                Warga Downwind (PM2.5)
-              </button>
+              {dispatches.map((item, index) => (
+                <button
+                  key={item.recipient_group}
+                  type="button"
+                  onClick={() => handleGroupChange(index)}
+                  className={`py-2 px-3 rounded-xl text-xs font-bold transition border ${
+                    groupIndex === index
+                      ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
+                      : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
+                  }`}
+                >
+                  {item.recipient_group}
+                </button>
+              ))}
             </div>
           </div>
 
@@ -125,7 +77,7 @@ Dihimbau untuk mengenakan masker dan menutup ventilasi sementara.`;
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
               className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 focus:bg-white rounded-xl px-3.5 py-2 text-xs text-slate-900 outline-none font-mono"
-              placeholder="Contoh: 6281234567890"
+              placeholder="62..."
             />
           </div>
 
@@ -143,7 +95,7 @@ Dihimbau untuk mengenakan masker dan menutup ventilasi sementara.`;
               </button>
             </div>
             <textarea
-              rows={6}
+              rows={10}
               value={message}
               onChange={(e) => setMessage(e.target.value)}
               className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 focus:bg-white rounded-xl p-3 text-xs text-slate-900 outline-none font-mono leading-relaxed resize-none"
@@ -161,11 +113,10 @@ Dihimbau untuk mengenakan masker dan menutup ventilasi sementara.`;
           </button>
           <button
             onClick={handleSend}
-            disabled={loading}
             className="px-5 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 text-white text-xs font-bold flex items-center gap-2 shadow-md shadow-emerald-600/20 transition disabled:opacity-50"
           >
-            {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ExternalLink className="w-3.5 h-3.5" />}
-            <span>Kirim via WhatsApp</span>
+            <ExternalLink className="w-3.5 h-3.5" />
+            <span>Buka di WhatsApp</span>
           </button>
         </div>
       </div>
