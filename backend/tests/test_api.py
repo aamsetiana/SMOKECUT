@@ -65,6 +65,12 @@ def test_analyze_sample_image():
     assert "vari_heatmap_url" in data["layers"]
     assert "detection_overlay_url" in data["layers"]
     assert "firebreak_overlay_url" in data["layers"]
+    assert "tactical_map_url" in data["layers"]
+    assert "tactical_overlay_url" in data["layers"]
+
+    assert "land_mapping" in data
+    assert "total_fuel_zones" in data["land_mapping"]
+    assert "fuel_zones" in data["land_mapping"]
 
     assert "vari_analysis" in data
     assert "detections" in data

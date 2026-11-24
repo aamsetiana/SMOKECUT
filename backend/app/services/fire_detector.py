@@ -167,34 +167,36 @@ class FireSmokeDetector:
         # Use CV heuristic detector (or YOLO if weights exist)
         detections = self.detect_cv(rgb_arr)
 
-        # Generate transparent overlay with bounding box annotations
+        # Generate transparent overlay with organic perimeter annotations (replaces crude boxes)
         overlay = Image.new("RGBA", (w, h), (0, 0, 0, 0))
         draw = ImageDraw.Draw(overlay)
 
         for det in detections:
             bbox = det["bbox"]
             x0, y0 = bbox["x"], bbox["y"]
-            x1, y1 = x0 + bbox["w"], y0 + bbox["h"]
+            w_b, h_b = bbox["w"], bbox["h"]
+            x1, y1 = x0 + w_b, y0 + h_b
 
             if det["class_name"] == "hotspot":
                 color_box = (239, 68, 68, 240)  # Bright Red
-                color_fill = (239, 68, 68, 40)
-                label_text = f"TITIK API ({int(det['confidence']*100)}%)"
+                color_fill = (239, 68, 68, 65)
+                label_text = f"🔥 TITIK API ({int(det['confidence']*100)}%)"
+                # Multi-layer thermal glow around fire core
+                draw.ellipse([x0 - 6, y0 - 6, x1 + 6, y1 + 6], fill=(239, 68, 68, 50), outline=(239, 68, 68, 180), width=2)
+                draw.ellipse([x0, y0, x1, y1], fill=(249, 115, 22, 180), outline=(255, 255, 255, 240), width=2)
             else:
-                color_box = (56, 189, 248, 240)  # Light Sky Blue
-                color_fill = (56, 189, 248, 30)
-                label_text = f"KEPULAN ASAP ({int(det['confidence']*100)}%)"
+                color_box = (56, 189, 248, 220)  # Light Sky Blue
+                color_fill = (56, 189, 248, 35)
+                label_text = f"💨 KEPULAN ASAP ({int(det['confidence']*100)}%)"
+                # Rounded organic plume boundary
+                draw.rounded_rectangle([x0, y0, x1, y1], radius=max(6, min(16, w_b // 4)), outline=color_box, fill=color_fill, width=2)
 
-            # Draw bounding box & semi-transparent fill
-            draw.rectangle([x0, y0, x1, y1], outline=color_box, width=3)
-            draw.rectangle([x0, y0, x1, y1], fill=color_fill)
-
-            # Draw tag box
-            tag_w = max(90, len(label_text) * 7)
-            tag_h = 16
+            # Draw tactical HUD tag badge
+            tag_w = max(90, len(label_text) * 7 + 12)
+            tag_h = 17
             tag_y0 = max(0, y0 - tag_h - 2)
-            draw.rectangle([x0, tag_y0, x0 + tag_w, tag_y0 + tag_h], fill=color_box)
-            draw.text((x0 + 4, tag_y0 + 2), label_text, fill=(255, 255, 255, 255))
+            draw.rectangle([x0, tag_y0, x0 + tag_w, tag_y0 + tag_h], fill=(15, 23, 42, 225), outline=color_box, width=1)
+            draw.text((x0 + 6, tag_y0 + 2), label_text, fill=(255, 255, 255, 255))
 
         overlay_filename = f"detections_{image_id}.png"
         overlay_path = OUTPUT_DIR / overlay_filename
