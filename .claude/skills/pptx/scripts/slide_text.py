@@ -1,3 +1,4 @@
+from __future__ import annotations
 """Print each slide of a .pptx, .pptm, .potx or .ppsx as markdown under `<!-- Slide number: N -->`.
 
 Title, text, tables, chart data, picture alt text and speaker notes; shapes top to bottom.

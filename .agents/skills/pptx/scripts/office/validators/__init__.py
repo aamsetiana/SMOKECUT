@@ -1,3 +1,4 @@
+from __future__ import annotations
 """
 Validation modules for Word document processing.
 """

@@ -1,3 +1,4 @@
+from __future__ import annotations
 """
 Base validator with common validation logic for document files.
 """

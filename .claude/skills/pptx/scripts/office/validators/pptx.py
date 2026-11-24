@@ -1,3 +1,4 @@
+from __future__ import annotations
 """
 Validator for PowerPoint presentation XML files against XSD schemas.
 """

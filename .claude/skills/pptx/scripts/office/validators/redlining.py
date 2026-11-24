@@ -1,3 +1,4 @@
+from __future__ import annotations
 """
 Validator for tracked changes in Word documents.
 

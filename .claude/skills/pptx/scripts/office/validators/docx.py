@@ -1,3 +1,4 @@
+from __future__ import annotations
 """
 Validator for Word document XML files against XSD schemas.
 """

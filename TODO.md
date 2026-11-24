@@ -12,9 +12,9 @@ Metodologi: **Iteratif Bertahap & Berbasis Pengujian (TDD & Verifikasi Bertingka
 |---|---|---|---|---|
 | **Fase 1** | Inisialisasi & Struktur Dasar | `done` | 6 | 6 |
 | **Fase 2** | Core Backend & Logika Computer Vision | `done` | 8 | 8 |
-| **Fase 3** | Antarmuka / Frontend Dashboard | `pending` | 7 | 0 |
-| **Fase 4** | Integrasi Sistem & Pengujian MVP | `in_progress` | 6 | 1 |
-| **Fase 5** | Aset Presentasi & Finalisasi AIRIMPACT 2026 | `pending` | 5 | 0 |
+| **Fase 3** | Antarmuka / Frontend Dashboard | `done` | 7 | 7 |
+| **Fase 4** | Integrasi Sistem & Pengujian MVP | `in_progress` | 6 | 2 |
+| **Fase 5** | Aset Presentasi & Finalisasi AIRIMPACT 2026 | `in_progress` | 5 | 4 |
 
 ---
 
@@ -128,7 +128,7 @@ Metodologi: **Iteratif Bertahap & Berbasis Pengujian (TDD & Verifikasi Bertingka
 
 ### Fase 5: Aset Presentasi & Finalisasi AIRIMPACT 2026
 - [x] 5.1 `[@Indra]` Buat aset visual resolusi tinggi (Dashboard Mockup) untuk **Slide 5** sesuai panduan Bagian 4 Blueprint (Header dasbor, foto udara, overlay merah semak kering, garis putus-putus sekat bakar, panah arah angin, tombol kirim WA).
-- [ ] 5.2 `[@Aam]` Siapkan rangkuman copywriting siap salin untuk 10 slide presentasi PPTX (Rasio 16:9, Font $\ge 18\text{ pt}$ isi, $\ge 12\text{ pt}$ referensi) sesuai Bagian 3 Blueprint.
-- [ ] 5.3 `[@Aam]` Validasi 6 kriteria penilaian juri: *Problem Relevance, Solution Innovation, Feasibility, Impact & Measurability, Behavior Change, Collaboration & Sustainability*.
-- [ ] 5.4 `[@Aam]` Lakukan audit kepatuhan terhadap **Checklist Final Anti-Diskualifikasi** (Bagian 6 Blueprint).
+- [x] 5.2 `[@Aam]` Siapkan rangkuman copywriting siap salin untuk 10 slide presentasi PPTX (Rasio 16:9, Font $\ge 18\text{ pt}$ isi, $\ge 12\text{ pt}$ referensi) sesuai Bagian 3 Blueprint dan generate via skill pptx.
+- [x] 5.3 `[@Aam]` Validasi 6 kriteria penilaian juri: *Problem Relevance, Solution Innovation, Feasibility, Impact & Measurability, Behavior Change, Collaboration & Sustainability*.
+- [x] 5.4 `[@Aam]` Lakukan audit kepatuhan terhadap **Checklist Final Anti-Diskualifikasi** (Bagian 6 Blueprint) dan validasi OOXML via `validate.py`.
 - [ ] 5.5 `[@Aam]` Final save point dan laporan komprehensif kepada Project Manager.
