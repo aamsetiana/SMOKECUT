@@ -58,6 +58,10 @@ Metodologi: **Iteratif Bertahap & Berbasis Pengujian (TDD & Verifikasi Bertingka
   - `POST /api/upload`: Unggah file citra (.jpg) atau video (.mp4).
   - `POST /api/analyze`: Memicu analisis 3-layer (VARI, Asap/Api, Rekomendasi Jalur Sekat Bakar).
   - `POST /api/dispatch-whatsapp`: Memicu pengiriman notifikasi peringatan ke MPA dan warga.
+- [x] 2.9 Implementasi Mesin Pemetaan Lahan Taktis Terpadu (`backend/app/services/tactical_map_generator.py`):
+  - Menggantikan kotak-kotak bounding box generik dengan kontur poligon organik api dan kerucut dispersi asap.
+  - Segmentasi spasial poligon zona semak kering (hektare & m²) berbasis kontur indeks VARI.
+  - Rendering peta taktis kartografi lengkap (Skala meter resmi, kompas arah angin, crosshairs GPS, kartu HUD operasi lapangan, dan layer `tactical_map_url`).
 
 ---
 

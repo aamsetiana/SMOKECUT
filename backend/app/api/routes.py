@@ -225,6 +225,16 @@ async def analyze_aerial_image(request: AnalyzeRequest):
         is_auto_wind=bool(wind_estimation is not None),
     )
 
+    # 4. Integrated Tactical Land Cover & Firebreak Operational Map
+    from backend.app.services.tactical_map_generator import tactical_map_generator
+    tactical_map_res = tactical_map_generator.generate_tactical_map(
+        base_image=analysis_image_path,
+        dry_mask=vari_res["dry_mask"],
+        detections=fire_res["detections"],
+        firebreak_plan=firebreak_res,
+        image_id=image_id,
+    )
+
     # Prepare preview URL for base original image/frame and dynamic video
     video_url = None
     detection_overlay_url = fire_res["overlay_url"]
@@ -287,9 +297,16 @@ async def analyze_aerial_image(request: AnalyzeRequest):
         "layers": {
             "original_image_url": original_url,
             "video_url": video_url,
+            "tactical_map_url": tactical_map_res["tactical_map_url"],
+            "tactical_overlay_url": tactical_map_res["tactical_overlay_url"],
             "vari_heatmap_url": vari_res["overlay_url"],
             "detection_overlay_url": detection_overlay_url,
             "firebreak_overlay_url": firebreak_res["overlay_url"],
+        },
+        "land_mapping": {
+            "total_fuel_zones": tactical_map_res["total_fuel_zones"],
+            "fuel_zones": tactical_map_res["fuel_zones"],
+            "total_dry_hectares": firebreak_res["metrics"]["protected_area_hectares"],
         },
         "vari_analysis": vari_res["statistics"],
         "detections": fire_res["detections"],

@@ -235,20 +235,24 @@
 
           <!-- Layer Toggles -->
           <div class="flex flex-wrap items-center gap-2 text-xs">
+            <label class="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-emerald-500/20 border border-emerald-500/50 text-emerald-300 font-bold cursor-pointer hover:bg-emerald-500/30 transition shadow-sm">
+              <input type="checkbox" id="layer-tactical" checked onchange="toggleLayers()" class="rounded text-emerald-500" />
+              <span>🗺️ Peta Taktis Lahan</span>
+            </label>
             <label class="flex items-center gap-1.5 px-2.5 py-1 rounded bg-slate-800/80 border border-slate-700 cursor-pointer hover:bg-slate-800">
-              <input type="checkbox" id="layer-original" checked onchange="toggleLayers()" class="rounded text-sky-500" />
+              <input type="checkbox" id="layer-original" onchange="document.getElementById('layer-tactical').checked=false; toggleLayers()" class="rounded text-sky-500" />
               <span>Foto RGB</span>
             </label>
             <label class="flex items-center gap-1.5 px-2.5 py-1 rounded bg-slate-800/80 border border-slate-700 cursor-pointer hover:bg-slate-800">
-              <input type="checkbox" id="layer-vari" checked onchange="toggleLayers()" class="rounded text-rose-500" />
+              <input type="checkbox" id="layer-vari" onchange="document.getElementById('layer-tactical').checked=false; toggleLayers()" class="rounded text-rose-500" />
               <span class="text-rose-400">Heatmap VARI</span>
             </label>
             <label class="flex items-center gap-1.5 px-2.5 py-1 rounded bg-slate-800/80 border border-slate-700 cursor-pointer hover:bg-slate-800">
-              <input type="checkbox" id="layer-detections" checked onchange="toggleLayers()" class="rounded text-sky-400" />
-              <span class="text-sky-300">Deteksi Api/Asap</span>
+              <input type="checkbox" id="layer-detections" onchange="document.getElementById('layer-tactical').checked=false; toggleLayers()" class="rounded text-sky-400" />
+              <span class="text-sky-300">Kontur Api/Asap</span>
             </label>
             <label class="flex items-center gap-1.5 px-2.5 py-1 rounded bg-slate-800/80 border border-slate-700 cursor-pointer hover:bg-slate-800">
-              <input type="checkbox" id="layer-firebreak" checked onchange="toggleLayers()" class="rounded text-amber-400" />
+              <input type="checkbox" id="layer-firebreak" onchange="document.getElementById('layer-tactical').checked=false; toggleLayers()" class="rounded text-amber-400" />
               <span class="text-amber-300">Jalur Sekat Bakar</span>
             </label>
           </div>
@@ -267,6 +271,7 @@
 
           <!-- Composite Layers -->
           <video id="video-original" class="layer-canvas hidden" autoplay loop muted playsinline></video>
+          <img id="img-tactical" class="layer-canvas hidden" alt="Tactical Land Map" />
           <img id="img-original" class="layer-canvas hidden" alt="Original Drone" />
           <img id="img-vari" class="layer-canvas hidden" alt="VARI Overlay" />
           <img id="img-detections" class="layer-canvas hidden" alt="Detections Overlay" />
@@ -492,6 +497,9 @@
       imgVari.src = data.layers.vari_heatmap_url + '?t=' + Date.now();
       imgDet.src = data.layers.detection_overlay_url + '?t=' + Date.now();
       imgFire.src = data.layers.firebreak_overlay_url + '?t=' + Date.now();
+      if (data.layers && data.layers.tactical_map_url) {
+        document.getElementById('img-tactical').src = data.layers.tactical_map_url + '?t=' + Date.now();
+      }
 
       toggleLayers();
 
@@ -558,23 +566,36 @@
     }
 
     function toggleLayers() {
+      const isTactical = document.getElementById('layer-tactical').checked;
       const orig = document.getElementById('layer-original').checked;
       const vari = document.getElementById('layer-vari').checked;
       const det = document.getElementById('layer-detections').checked;
       const fire = document.getElementById('layer-firebreak').checked;
 
       const isVideo = latestAnalysisData && latestAnalysisData.media_type === 'video';
-      if (isVideo) {
-        document.getElementById('video-original').classList.toggle('hidden', !orig);
-        document.getElementById('img-original').classList.add('hidden');
-      } else {
-        document.getElementById('img-original').classList.toggle('hidden', !orig);
-        document.getElementById('video-original').classList.add('hidden');
-      }
+      const imgTactical = document.getElementById('img-tactical');
 
-      document.getElementById('img-vari').classList.toggle('hidden', !vari);
-      document.getElementById('img-detections').classList.toggle('hidden', !det);
-      document.getElementById('img-firebreak').classList.toggle('hidden', !fire);
+      if (isTactical && !isVideo && imgTactical && imgTactical.getAttribute('src')) {
+        imgTactical.classList.remove('hidden');
+        document.getElementById('img-original').classList.add('hidden');
+        document.getElementById('video-original').classList.add('hidden');
+        document.getElementById('img-vari').classList.add('hidden');
+        document.getElementById('img-detections').classList.add('hidden');
+        document.getElementById('img-firebreak').classList.add('hidden');
+      } else {
+        if (imgTactical) imgTactical.classList.add('hidden');
+        if (isVideo) {
+          document.getElementById('video-original').classList.toggle('hidden', !orig);
+          document.getElementById('img-original').classList.add('hidden');
+        } else {
+          document.getElementById('img-original').classList.toggle('hidden', !orig);
+          document.getElementById('video-original').classList.add('hidden');
+        }
+
+        document.getElementById('img-vari').classList.toggle('hidden', !vari);
+        document.getElementById('img-detections').classList.toggle('hidden', !det);
+        document.getElementById('img-firebreak').classList.toggle('hidden', !fire);
+      }
     }
 
     async function fetchWhatsAppDispatches(analysisData) {
