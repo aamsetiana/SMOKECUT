@@ -11,6 +11,7 @@ from PIL import Image
 
 from backend.app.main import app
 from backend.app.services.fire_detector import fire_detector, segment_scene
+from backend.app.services.geo_metadata import read_drone_metadata
 from backend.app.services.firebreak_optimizer import firebreak_optimizer
 
 client = TestClient(app)
@@ -51,11 +52,12 @@ def test_firebreak_lies_in_fuel_at_safe_distance(wind):
     masks = segment_scene(img)
     plan = firebreak_optimizer.optimize(
         {"width": 1280, "height": 720}, masks.fuel, fire_detector.detect_cv(img, masks), wind_direction=wind,
-        safety_buffer_meters=20.0, image_id="test_front", fire_mask=masks.fire, fuel_mask=masks.fuel,
+        fuel_height_m=1.5, image_id="test_front", fire_mask=masks.fire, fuel_mask=masks.fuel,
+        geo={"ground_width_m": 320.0},
     )
     dist = cv2.distanceTransform(1 - masks.fire.astype(np.uint8), cv2.DIST_L2, 5)
     line = plan["trajectory"]["polyline"]
-    buffer_px = plan["metrics"]["effective_safety_buffer_meters"] / plan["meters_per_pixel"]
+    buffer_px = (plan["metrics"]["effective_safety_buffer_meters"] + 10.0) / plan["meters_per_pixel"]
     for p in line:
         x, y = int(p["x"]), int(p["y"])
         assert dist[y, x] >= 0.85 * buffer_px
@@ -63,15 +65,23 @@ def test_firebreak_lies_in_fuel_at_safe_distance(wind):
     assert line[-1]["x"] - line[0]["x"] > 600  # spans the whole front
 
 
-def test_gps_latitude_increases_northwards():
-    res = firebreak_optimizer.optimize(
-        {"width": 800, "height": 600}, None, [{"class_name": "hotspot", "centroid": {"x": 400, "y": 300}}],
-        wind_direction=90.0, image_id="test_gps",
-    )
-    traj, gps = res["trajectory"], res["gps_coordinates"]
-    assert (traj["start_point"]["y"] < traj["end_point"]["y"]) == (
-        gps["start"]["latitude"] > gps["end"]["latitude"]
-    )
+def test_drone_metadata_gives_scale_only_when_nadir(tmp_path):
+    def photo(pitch: str):
+        path = tmp_path / f"dji{pitch}.jpg"
+        exif = Image.Exif()
+        exif.get_ifd(0x8769)[41989] = 24
+        Image.new("RGB", (4000, 3000)).save(path, exif=exif)
+        xmp = (
+            f'drone-dji:RelativeAltitude="+80.0" drone-dji:GimbalPitchDegree="{pitch}" '
+            'drone-dji:GimbalYawDegree="+30.0" drone-dji:GpsLatitude="-0.5" drone-dji:GpsLongitude="+101.5"'
+        )
+        path.write_bytes(path.read_bytes() + xmp.encode())
+        return read_drone_metadata(path)
+
+    nadir = photo("-90.0")
+    assert nadir["ground_width_m"] == pytest.approx(80 * 43.27 / 24 * 0.8, rel=0.01)
+    assert (nadir["latitude"], nadir["longitude"], nadir["heading_deg"]) == (-0.5, 101.5, 30.0)
+    assert set(photo("-30.0").values()) == {None}
 
 
 def test_unknown_image_id_returns_404():
@@ -86,7 +96,9 @@ def test_results_do_not_depend_on_resolution_and_are_fast():
         Image.fromarray(make_scene()).resize((w, h)).save(buf, "JPEG", quality=95)
         up = client.post("/api/upload", files={"file": ("a.jpg", buf.getvalue(), "image/jpeg")}).json()
         start = time.perf_counter()
-        res = client.post("/api/analyze", json={"image_id": up["image_id"], "wind_direction": 0, "wind_speed": 10})
+        res = client.post("/api/analyze", json={
+            "image_id": up["image_id"], "wind_direction": 0, "fuel_height_m": 1.5, "ground_width_m": 320,
+        })
         assert time.perf_counter() - start < 2.0
         lengths.append(res.json()["summary"]["cutting_length_meters"])
     assert lengths[0] == pytest.approx(lengths[1], rel=0.05)

@@ -57,8 +57,8 @@ def test_analyze_sample_image():
     assert data["status"] == "success"
     assert "summary" in data
     assert data["summary"]["risk_level"] in ("TINGGI", "SEDANG", "RENDAH")
-    assert data["summary"]["cutting_length_meters"] > 0
-    assert data["summary"]["recommended_width_meters"] in (3.0, 4.0, 5.0)
+    assert data["summary"]["cutting_length_meters"] is None  # no scale, no length
+    assert data["summary"]["recommended_width_meters"] == 20.0
     assert data["summary"]["effective_safety_buffer_meters"] >= 20.0
 
     assert "layers" in data
@@ -93,6 +93,8 @@ def test_dispatch_whatsapp_endpoint():
     # Verify MPA team message
     mpa_msg = dispatches[0]
     assert mpa_msg["recipient_group"] == "Tim MPA / BPBD"
+    assert "Belum ada data GPS" in mpa_msg["message_text"]
+    assert "maps.google" not in mpa_msg["message_text"]
     assert "wa.me" in mpa_msg["deep_link"]
     assert "SMOKECUT ALERT" in mpa_msg["message_text"]
 
@@ -134,7 +136,7 @@ def test_upload_and_analyze_video_endpoint():
     assert "vari_analysis" in analyze_data
     assert "detections" in analyze_data
     assert "firebreak_plan" in analyze_data
-    assert analyze_data["summary"]["cutting_length_meters"] > 0
+    assert len(analyze_data["firebreak_plan"]["trajectory"]["polyline"]) >= 2
     assert "frame.jpg" in analyze_data["layers"]["original_image_url"]
 
 
@@ -155,9 +157,9 @@ def test_analyze_auto_wind_endpoint():
     assert "speed_kmh" in data["wind_estimation"]
     assert data["firebreak_plan"]["wind"]["is_auto_detected"] is True
     assert "estimasi_angin" in data["summary"]["penjelasan_lapangan"]
-    assert data["summary"]["cutting_length_meters"] > 0
-    assert data["summary"]["recommended_width_meters"] in (3.0, 4.0, 5.0)
-    assert data["summary"]["effective_safety_buffer_meters"] >= 20.0
+    assert data["summary"]["cutting_length_meters"] is None  # no scale, no length
+    assert data["summary"]["recommended_width_meters"] == 20.0
+    assert data["summary"]["effective_safety_buffer_meters"] is None
 
 
 def test_analyze_explicit_auto_wind_endpoint():

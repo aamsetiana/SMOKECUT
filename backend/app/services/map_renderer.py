@@ -1,7 +1,7 @@
 """Shared drawing primitives for SEKAT-AI overlays, maps, and annotated video."""
 
 import math
-from typing import Any, Dict, List, Sequence, Tuple
+from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 import cv2
 import numpy as np
@@ -105,9 +105,9 @@ def draw_firebreak(
     img: Image.Image,
     polyline: Sequence[Point],
     threat: Point,
-    length_m: float,
+    length_m: Optional[float],
     width_m: float,
-    band_px: float,
+    band_px: Optional[float],
     occupied: List[Box],
 ) -> None:
     """Draw the recommended cutting corridor with A/B markers and one label."""
@@ -116,9 +116,14 @@ def draw_firebreak(
         return
     draw = ImageDraw.Draw(img, "RGBA")
     s = ui_scale(img.size)
-    band = int(max(10 * s, band_px))
-    draw.line(poly, fill=(0, 0, 0, 255), width=band + int(4 * s), joint="curve")
-    draw.line(poly, fill=BREAK + (255,), width=band, joint="curve")
+    band = int(max(10 * s, band_px or 0))
+    # A to-scale belt is wide: keep it translucent so the land stays visible.
+    wide = band > 30 * s
+    layer = Image.new("RGBA", img.size, (0, 0, 0, 0))
+    layer_draw = ImageDraw.Draw(layer)
+    layer_draw.line(poly, fill=(0, 0, 0, 255), width=band + int(4 * s), joint="curve")
+    layer_draw.line(poly, fill=BREAK + (120 if wide else 255,), width=band, joint="curve")
+    img.paste(layer, (0, 0), layer) if img.mode == "RGB" else img.alpha_composite(layer)
 
     total = sum(math.dist(a, b) for a, b in zip(poly, poly[1:]))
     dash, pos = 16 * s, 0.0
@@ -151,7 +156,7 @@ def draw_firebreak(
         )
         draw.text((x, y), name, font=font, fill=WHITE + (255,), anchor="mm")
         occupied.append((int(x - r), int(y - r), int(x + r), int(y + r)))
-    label = f"SEKAT BAKAR ±{length_m:.0f} m x {width_m:g} m"
+    label = f"SEKAT BAKAR {length_m:.0f} m x {width_m:g} m" if length_m else f"SEKAT BAKAR lebar min. {width_m:g} m (ilustrasi)"
     draw_tag(draw, img.size, _point_at(poly, total * 0.3), label, BREAK, occupied)
 
 

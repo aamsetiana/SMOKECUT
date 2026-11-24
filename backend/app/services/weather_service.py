@@ -1,6 +1,6 @@
 """Weather and Wind Direction Processing Service for SEKAT-AI."""
 
-from typing import Dict, Any, Union
+from typing import Dict, Any, Optional, Union
 
 
 COMPASS_TO_DEGREES = {
@@ -31,17 +31,17 @@ COMPASS_TO_DEGREES = {
 }
 
 
-def parse_wind_direction(direction: Union[str, int, float, None]) -> float:
-    """Normalize wind direction to degrees (0 - 360)."""
+def parse_wind_direction(direction: Union[str, int, float, None]) -> Optional[float]:
+    """Normalize wind direction to degrees (0 - 360); None when unknown or invalid."""
     if direction is None:
-        return 135.0
+        return None
 
     if isinstance(direction, (int, float)):
         return float(direction) % 360.0
 
     dir_clean = str(direction).strip().upper()
     if dir_clean in ("AUTO", "UNKNOWN", "NONE", ""):
-        return 135.0
+        return None
 
     if dir_clean in COMPASS_TO_DEGREES:
         return COMPASS_TO_DEGREES[dir_clean]
@@ -50,8 +50,7 @@ def parse_wind_direction(direction: Union[str, int, float, None]) -> float:
     try:
         return float(dir_clean) % 360.0
     except ValueError:
-        # Default to Southeast (135°)
-        return 135.0
+        return None
 
 
 def degrees_to_compass(degrees: float) -> str:
@@ -78,8 +77,6 @@ def degrees_to_compass(degrees: float) -> str:
 def estimate_wind_from_vision(
     detections: list,
     dry_mask=None,
-    default_dir: float = 135.0,
-    default_speed: float = 14.0,
 ) -> Dict[str, Any]:
     """Infers wind direction and speed automatically from drone vision.
 
@@ -121,8 +118,8 @@ def estimate_wind_from_vision(
             smoke_deg = (math.degrees(math.atan2(dx, -dy))) % 360.0
             # Wind comes FROM the opposite direction
             wind_from_deg = (smoke_deg + 180.0) % 360.0
-            # Speed cannot be measured from a single frame, so use the default
-            est_speed = default_speed
+            # Speed cannot be measured from a single frame
+            est_speed = None
             compass = degrees_to_compass(wind_from_deg)
 
             return {
@@ -131,42 +128,17 @@ def estimate_wind_from_vision(
                 "speed_kmh": est_speed,
                 "is_auto_detected": True,
                 "estimation_method": "Dispersi Kepulan Asap Drone (Smoke Plume Drift)",
-                "confidence": "Rendah (arah relatif kamera, kecepatan asumsi)",
-                "keterangan": f"Asap membubung ke arah {degrees_to_compass(smoke_deg)}, perkiraan angin dari {compass} (relatif arah kamera; kecepatan asumsi).",
+                "confidence": "Rendah (arah relatif kamera, kecepatan tidak diketahui)",
+                "keterangan": f"Asap membubung ke arah {degrees_to_compass(smoke_deg)}, perkiraan angin dari {compass} (relatif arah kamera; kecepatan tidak diketahui).",
             }
 
-    # Method 2: Fuel Gradient (flame spreads towards dense dry bushes)
-    if flames and dry_mask is not None and np.sum(dry_mask) > 0:
-        fx = flames[0]["centroid"]["x"]
-        fy = flames[0]["centroid"]["y"]
-        ys, xs = np.where(dry_mask)
-        mx = float(np.mean(xs))
-        my = float(np.mean(ys))
-        dx = mx - fx
-        dy = my - fy
-        dist = math.hypot(dx, dy)
-        if dist >= 25.0:
-            spread_deg = (math.degrees(math.atan2(dx, -dy))) % 360.0
-            wind_from_deg = (spread_deg + 180.0) % 360.0
-            compass = degrees_to_compass(wind_from_deg)
-            return {
-                "direction_degrees": round(wind_from_deg, 1),
-                "direction_compass": compass,
-                "speed_kmh": 12.0,
-                "is_auto_detected": True,
-                "estimation_method": "Gradien Konsentrasi Semak Kering (Fuel Gradient)",
-                "confidence": "Moderat (Berdasarkan Kontur Bahan Bakar)",
-                "keterangan": f"Api berpotensi merambat menuju kantong semak kering di arah {degrees_to_compass(spread_deg)}.",
-            }
-
-    # Method 3: Radial Barrier Fallback (Calm / Unknown Wind)
-    compass = degrees_to_compass(default_dir)
+    # Without visible smoke the wind is unknown; fuel location says nothing about it
     return {
-        "direction_degrees": default_dir,
-        "direction_compass": compass,
-        "speed_kmh": default_speed,
+        "direction_degrees": None,
+        "direction_compass": None,
+        "speed_kmh": None,
         "is_auto_detected": True,
-        "estimation_method": "Standar Patroli Lapangan Aman (Baseline Buffer)",
-        "confidence": "Konservatif",
-        "keterangan": "Angin tenang atau tidak terdeteksi kepulan condong. Rekomendasi sekat bakar dipasang mengunci batas semak kering terdekat.",
+        "estimation_method": "Tidak terdeteksi",
+        "confidence": "Tidak ada",
+        "keterangan": "Arah angin tidak dapat dibaca dari citra. Isi data angin dari alat ukur atau BMKG.",
     }

@@ -5,12 +5,22 @@ Generates structured tactical dispatch messages for:
 2. Downwind Residents: Early air quality advisory and PM2.5 smoke mitigation protocols.
 """
 
-from typing import Dict, Any, List
+from typing import Any, Dict
 import urllib.parse
 
 
 class WhatsAppNotificationService:
     """Formats and dispatches tactical alert messages and deep-links."""
+
+    @staticmethod
+    def _wind_text(wind: Dict[str, Any]) -> str:
+        """Wind description without inventing missing values."""
+        if not wind.get("direction_compass"):
+            return "belum ada data"
+        text = f"dari {wind['direction_compass']}"
+        if wind.get("speed_kmh"):
+            text += f" ({wind['speed_kmh']:g} km/jam)"
+        return text + (" - perkiraan dari citra" if wind.get("is_auto_detected") else "")
 
     def format_mpa_alert(self, analysis_data: Dict[str, Any]) -> Dict[str, Any]:
         """Generate tactical message for Masyarakat Peduli Api (MPA) field team."""
@@ -20,36 +30,36 @@ class WhatsAppNotificationService:
         gps = firebreak.get("gps_coordinates", {})
         wind = firebreak.get("wind", {})
 
-        length_m = metrics.get("cutting_length_meters", 120.0)
-        width_m = metrics.get("recommended_width_meters", 4.0)
-        buffer_m = metrics.get("effective_safety_buffer_meters", 25.0)
-        hours = metrics.get("estimated_clearing_hours", 4.8)
-        team_size = metrics.get("recommended_team_size", 5)
+        def meters(key: str) -> str:
+            value = metrics.get(key)
+            return f"{value:g} meter" if value else "belum ada data"
 
-        start_lat = gps.get("start", {}).get("latitude", -0.2285)
-        start_lon = gps.get("start", {}).get("longitude", 101.5542)
-        end_lat = gps.get("end", {}).get("latitude", -0.2295)
-        end_lon = gps.get("end", {}).get("longitude", 101.5562)
-
-        risk_level = summary.get("risk_level", "TINGGI")
-        hotspot_count = summary.get("hotspots_detected", 0)
-
+        width = metrics.get("recommended_width_meters")
+        start, end = gps.get("start"), gps.get("end")
+        if start and end:
+            gps_text = (
+                f"• Titik Mulai (A): `{start['latitude']}, {start['longitude']}`\n"
+                f"• Titik Selesai (B): `{end['latitude']}, {end['longitude']}`\n"
+                f"• Buka Panduan Peta: https://maps.google.com/?q={start['latitude']},{start['longitude']}\n\n"
+            )
+        else:
+            gps_text = "• Belum ada data GPS. Jangan bergerak sebelum lokasi dipastikan.\n\n"
+        notes = "".join(f"• {w}\n" for w in firebreak.get("warnings", []))
         message_text = (
-            "🚨 *[SEKAT-AI / SMOKECUT ALERT] INSTRUKSI TAKTIS SEKAT BAKAR PREVENTIF*\n"
-            f"Status Lapangan: *RISIKO {risk_level}* ({hotspot_count} titik api/asap terdeteksi)\n\n"
-            "📋 *Spesifikasi Pembabatan Jalur Sekat Bakar:*\n"
-            f"• Estimasi Panjang Jalur: *{length_m} Meter*\n"
-            f"• Lebar Pemotongan: *{width_m} Meter* (sesuai standar MPA)\n"
-            f"• Safety Buffer (Jarak Aman): *{buffer_m} Meter* dari kepala api\n"
-            f"• Estimasi Waktu Babat: *{hours} Jam* (regu {team_size} orang)\n"
-            f"• Arah & Kecepatan Angin: {wind.get('direction_compass', 'Tenggara')} ({wind.get('speed_kmh', 14)} km/jam)\n\n"
+            "🚨 *[SEKAT-AI / SMOKECUT ALERT] REKOMENDASI SEKAT BAKAR*\n"
+            f"Status Lapangan: *RISIKO {summary.get('risk_level', 'belum ada data')}* "
+            f"({summary.get('hotspots_detected', 0)} titik/garis api terdeteksi)\n\n"
+            "📋 *Spesifikasi Sekat Bakar:*\n"
+            f"• Panjang Jalur: *{'minimal ' if firebreak.get('is_partial') else ''}{meters('cutting_length_meters')}*\n"
+            f"• Lebar: *{f'{width:g} meter' if width else 'belum ada data'}* (Permen LHK 28/2021)\n"
+            f"• Jarak Aman Tim: *{meters('effective_safety_buffer_meters')}* dari api\n"
+            f"• Angin: {self._wind_text(wind)}\n"
+            "• Bersihkan vegetasi dan bahan bakaran sampai terlihat tanah permukaan.\n\n"
             "📍 *Koordinat Navigasi GPS:*\n"
-            f"• Titik Mulai (A): `{start_lat}, {start_lon}`\n"
-            f"• Titik Selesai (B): `{end_lat}, {end_lon}`\n"
-            f"• Buka Panduan Peta: https://maps.google.com/?q={start_lat},{start_lon}\n\n"
-            "🌾 *Sirkularitas Biomassa:*\n"
-            "Rumput dan semak hasil babatan *TIDAK BOLEH DITINGGALKAN* di pinggir jalur! "
-            "Segera angkut untuk pakan ternak warga atau bahan kompos desa."
+            f"{gps_text}"
+            + (f"⚠️ *Catatan:*\n{notes}\n" if notes else "")
+            + "🌾 *Hasil Pembersihan:*\n"
+            "Angkut rumput dan semak hasil babatan dari jalur. Pemanfaatan kayu mengikuti peraturan."
         )
 
         encoded_text = urllib.parse.quote(message_text)
@@ -66,21 +76,17 @@ class WhatsAppNotificationService:
         """Generate early PM2.5 air quality warning for residents downwind of the fire threat."""
         firebreak = analysis_data.get("firebreak_plan", {})
         wind = firebreak.get("wind", {})
-        wind_compass = wind.get("direction_compass", "Tenggara (SE)")
-        wind_speed = wind.get("speed_kmh", 14.0)
-
         message_text = (
             "⚠️ *[PERINGATAN DINI KUALITAS UDARA SEKAT-AI]*\n"
             "Waspada Dispersi Asap & Partikulat Halus PM2.5\n\n"
             "💨 *Kondisi Angin & Jalur Asap:*\n"
-            f"• Arah Embusan Angin: Menuju ke permukiman dari arah {wind_compass}\n"
-            f"• Kecepatan Angin: {wind_speed} km/jam\n"
+            f"• Angin: {self._wind_text(wind)}\n"
             "• Potensi Bahaya: Asap mikro dan partikel PM2.5 berpotensi masuk ke area warga.\n\n"
             "🛡️ *Protokol Perlindungan Mandiri Warga:*\n"
             "1. Tutup pintu, jendela, dan ventilasi rumah.\n"
             "2. Gunakan masker saat beraktivitas di luar rumah.\n"
             "3. Pastikan kelompok rentan (anak-anak, lansia, ibu hamil) tetap di dalam ruangan.\n"
-            "4. Tim relawan MPA sedang membuka sekat bakar pencegah di batas lahan."
+            "4. Ikuti arahan petugas setempat."
         )
 
         encoded_text = urllib.parse.quote(message_text)
