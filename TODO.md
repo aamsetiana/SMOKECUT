@@ -67,6 +67,11 @@ Metodologi: **Iteratif Bertahap & Berbasis Pengujian (TDD & Verifikasi Bertingka
   - Mengembalikan tampilan multi-layer terpadu standar (Foto/Video Drone + Heatmap VARI Semak Kering + Kontur Api/Asap + Rekomendasi Sekat Bakar + Overlay Taktis Lahan) yang aktif secara default (*checked by default*).
   - Mode Peta Cetak (HD) standalone switchable untuk kebutuhan komando darurat dan cetak peta resolusi tinggi.
   - Dukungan video drone looping dengan live overlays tanpa black screen.
+- [x] 2.11 Rekonstruksi Lahan 3D Fotogrametri & Visualizer Sekat Bakar 3D (`frontend/index.html`):
+  - Integrasi Three.js WebGL & OrbitControls untuk rendering elevasi topografi lahan 3D (Digital Surface Model / DSM).
+  - Navigasi 3D penuh (orbit 360°, tilt lereng, pan, dan zoom in/out).
+  - Rendering pita sekat bakar 3D (lebar 3-5 meter) yang meliuk mengikuti kontur tanah dan punggung bukit (*ridgeline*).
+  - Penandaan Waypoint 3D (Tiang Mulai [A] & Selesai [B]), nyala api termal 3D berkedip, dan vektor arah angin.
 
 ---
 
