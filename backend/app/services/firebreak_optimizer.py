@@ -267,30 +267,7 @@ class FirebreakOptimizer:
         mid_x = int((p1_x + p2_x) / 2)
         mid_y = int((p1_y + p2_y) / 2)
         draw.ellipse([mid_x - 5, mid_y - 5, mid_x + 5, mid_y + 5], fill=(56, 189, 248, 255), outline=(255, 255, 255, 255), width=2)
-        draw.text((mid_x - 70, mid_y - 24), "JALUR SEKAT PEMUTUS API", fill=(245, 158, 11, 245))
-        draw.text((mid_x - 90, mid_y - 8), f"Babat: {int(cut_length_meters)}m x Lebar: {int(firebreak_width_meters)}m", fill=(255, 255, 255, 250))
-
-        # 6f. Draw Tactical Recommendation HUD Card on Bottom-Left of Overlay
-        card_w, card_h = 340, 74
-        cx0, cy0 = 20, max(20, h - card_h - 20)
-        cx1, cy1 = cx0 + card_w, cy0 + card_h
-        draw.rectangle([cx0, cy0, cx1, cy1], fill=(15, 23, 42, 230), outline=(245, 158, 11, 240), width=2)
-        draw.text((cx0 + 12, cy0 + 8), "REKOMENDASI SEKAT BAKAR PRESISI (AI-CV)", fill=(245, 158, 11, 255))
-        draw.text((cx0 + 12, cy0 + 26), f"Panjang: {cut_length_meters}m  |  Lebar: {firebreak_width_meters}m  |  Buffer: {int(effective_buffer_m)}m", fill=(255, 255, 255, 245))
-        draw.text((cx0 + 12, cy0 + 44), f"A: ({start_gps['latitude']}, {start_gps['longitude']})", fill=(34, 197, 94, 235))
-        draw.text((cx0 + 12, cy0 + 58), f"B: ({end_gps['latitude']}, {end_gps['longitude']})", fill=(239, 68, 68, 235))
-
-        # Draw Wind Vector Arrow at Top Right
-        arrow_cx, arrow_cy = w - 90, 80
-        arrow_len = 35
-        ax1 = arrow_cx + int(v_spread_x * arrow_len)
-        ay1 = arrow_cy + int(v_spread_y * arrow_len)
-        draw.line([(arrow_cx, arrow_cy), (ax1, ay1)], fill=(14, 165, 233, 240), width=4)
-        draw.ellipse([arrow_cx - 4, arrow_cy - 4, arrow_cx + 4, arrow_cy + 4], fill=(14, 165, 233, 255))
-        if is_auto_wind:
-            draw.text((w - 175, 14), "Angin: Deteksi AI Vision", fill=(34, 197, 94, 255))
-        draw.text((w - 175, 30), f"Kecepatan: {wind_speed_kmh} km/j", fill=(255, 255, 255, 230))
-        draw.text((w - 175, 46), f"Arah Datang: {wind_compass}", fill=(14, 165, 233, 255))
+        draw.text((mid_x - 65, mid_y - 14), f"SEKAT {int(cut_length_meters)}m x {int(firebreak_width_meters)}m", fill=(255, 255, 255, 250))
 
         # Save Overlay Image
         overlay_filename = f"firebreak_overlay_{image_id}.png"

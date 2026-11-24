@@ -72,6 +72,10 @@ Metodologi: **Iteratif Bertahap & Berbasis Pengujian (TDD & Verifikasi Bertingka
   - Navigasi 3D penuh (orbit 360°, tilt lereng, pan, dan zoom in/out).
   - Rendering pita sekat bakar 3D (lebar 3-5 meter) yang meliuk mengikuti kontur tanah dan punggung bukit (*ridgeline*).
   - Penandaan Waypoint 3D (Tiang Mulai [A] & Selesai [B]), nyala api termal 3D berkedip, dan vektor arah angin.
+- [x] 2.12 Eliminasi Duplikasi Layer & Refinement Peta Ortomosaik Taktis (`backend/` & `frontend/`):
+  - Memisahkan secara ketat tanggung jawab render antar layer: `vari_overlay` (opacity halus ~20% anti-red wash), `detections_overlay` (smart anti-collision tags & thermal glow), `firebreak_overlay` (swath babat, centerline, tick 25m, Waypoint A/B, safety buffer), dan `tactical_overlay` (zonasi poligon bahan bakar, corner crosshairs, compass rose, scale bar, HUD card).
+  - Menghilangkan total duplikasi teks/ghosting ("Rambatan Terblokir", double HUD card, double wind compass, 15+ label api bertumpuk).
+  - Standalone HD Print Map (`tactical_map_url`) menyatukan seluruh elemen dalam satu rendering tunggal siap cetak.
 
 ---
 
