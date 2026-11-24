@@ -26,9 +26,6 @@
       }
     }
   </script>
-  <!-- Three.js & OrbitControls for 3D Photogrammetric Drone Terrain Reconstruction -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
   <style>
     .layer-canvas {
       position: absolute;
@@ -258,11 +255,8 @@
               <input type="checkbox" id="layer-tactical-overlay" checked onchange="toggleLayers()" class="rounded text-emerald-500" />
               <span class="text-emerald-400 font-medium">Overlay Taktis Lahan</span>
             </label>
-            <button id="btn-toggle-3d" type="button" onclick="toggle3DView()" class="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-indigo-500/20 border border-indigo-500/50 text-indigo-300 font-bold cursor-pointer hover:bg-indigo-500/30 transition shadow-sm ml-auto">
-              <span>🌐 Mode 3D Terrain Drone</span>
-            </button>
-            <button id="btn-view-print-map" type="button" onclick="toggleFullPrintMap()" class="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-emerald-500/20 border border-emerald-500/50 text-emerald-300 font-bold cursor-pointer hover:bg-emerald-500/30 transition shadow-sm">
-              <span>🗺️ Peta Cetak (HD)</span>
+            <button id="btn-view-print-map" type="button" onclick="toggleFullPrintMap()" class="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-emerald-500/20 border border-emerald-500/50 text-emerald-300 font-bold cursor-pointer hover:bg-emerald-500/30 transition shadow-sm ml-auto">
+              <span>🗺️ Mode Peta Cetak (HD)</span>
             </button>
           </div>
         </div>
@@ -271,7 +265,7 @@
         <div id="ai-recommendation-banner" class="hidden mb-3 p-3.5 rounded-xl bg-slate-900/90 border border-amber-500/40 shadow-lg text-xs transition"></div>
 
         <!-- Canvas Container -->
-        <div id="viewer-container" class="relative w-full aspect-[4/3] max-h-[580px] bg-slate-950 rounded-xl border border-slate-800 overflow-hidden flex items-center justify-center">
+        <div id="viewer-container" class="relative w-full aspect-[4/3] max-h-[580px] bg-slate-950 rounded-xl border border-slate-800 overflow-hidden flex items-center justify-center shadow-2xl">
           <div id="empty-state" class="text-center p-8">
             <div class="text-5xl text-slate-700 mb-3 animate-bounce">🛰️</div>
             <p class="text-sm font-semibold text-slate-300">Belum Ada Citra yang Dianalisis</p>
@@ -291,28 +285,26 @@
           <!-- Standalone Full Cartographic Print Map -->
           <img id="img-tactical-full" class="layer-canvas hidden" alt="Full Tactical Cartography Map" />
 
-          <!-- 3D WebGL Photogrammetry Terrain Container -->
-          <div id="three-container" class="absolute inset-0 w-full h-full hidden z-20 cursor-grab active:cursor-grabbing"></div>
-
-          <!-- 3D View HUD / Instruction overlay -->
-          <div id="three-hud" class="absolute bottom-3 left-3 bg-slate-900/90 border border-indigo-500/50 rounded-xl p-2.5 text-[11px] text-slate-300 pointer-events-none hidden z-30 shadow-2xl backdrop-blur-sm">
-            <div class="font-bold text-indigo-400 flex items-center gap-1.5 mb-1">
-              <span>🏔️ 3D Photogrammetric Elevation Mesh</span>
-              <span class="text-[9px] px-1.5 py-0.2 rounded bg-indigo-500/30 text-indigo-200">DSM Photogrammetry</span>
+          <!-- Tactical Map Quick Legend Bar -->
+          <div id="map-legend-bar" class="absolute bottom-2.5 left-2.5 right-2.5 bg-slate-900/90 border border-slate-700/80 rounded-lg px-3 py-1.5 flex flex-wrap items-center justify-between gap-2 text-[10px] text-slate-300 pointer-events-none hidden backdrop-blur-sm z-10 shadow-lg">
+            <div class="flex items-center gap-3 flex-wrap">
+              <span class="flex items-center gap-1 font-medium text-rose-400">
+                <span class="w-2.5 h-2.5 rounded-sm bg-rose-500/80 border border-rose-400"></span> Semak Kering (VARI &le; 0.1)
+              </span>
+              <span class="flex items-center gap-1 font-medium text-emerald-400">
+                <span class="w-2.5 h-2.5 rounded-sm bg-emerald-500/80 border border-emerald-400"></span> Vegetasi Lembap (Aman)
+              </span>
+              <span class="flex items-center gap-1 font-bold text-amber-300">
+                <span class="w-2.5 h-2.5 rounded-sm bg-amber-400 border border-amber-300"></span> Sekat Bakar (3-5m)
+              </span>
+              <span class="flex items-center gap-1 font-medium text-sky-400">
+                <span class="w-2.5 h-2.5 rounded-full border border-sky-400 border-dashed"></span> Safety Buffer
+              </span>
             </div>
-            <div class="text-[10px] text-slate-400">
-              🖱️ <b>Klik Kiri + Geser:</b> Orbit / Putar 360° | <b>Scroll:</b> Zoom | <b>Klik Kanan:</b> Pan
-            </div>
-            <div class="mt-1 flex items-center gap-2 text-[10px]">
-              <span class="inline-flex items-center gap-1 text-amber-300">
-                <span class="w-2 h-2 rounded-full bg-amber-400"></span> Pita Sekat 3D
-              </span>
-              <span class="inline-flex items-center gap-1 text-emerald-400">
-                <span class="w-2 h-2 rounded-full bg-emerald-400"></span> Waypoint A (Mulai)
-              </span>
-              <span class="inline-flex items-center gap-1 text-rose-400">
-                <span class="w-2 h-2 rounded-full bg-rose-400"></span> Waypoint B (Selesai)
-              </span>
+            <div class="flex items-center gap-3 font-mono text-[9px] text-slate-400">
+              <span class="text-emerald-400 font-bold">[A] Mulai 0m</span>
+              <span class="text-rose-400 font-bold">[B] Selesai</span>
+              <span>Skala: 1px &approx; 0.25m</span>
             </div>
           </div>
         </div>
@@ -561,15 +553,15 @@
       isFullPrintMapMode = false;
       const btnPrint = document.getElementById('btn-view-print-map');
       if (btnPrint) {
-        btnPrint.innerHTML = '<span>🗺️ Peta Cetak (HD)</span>';
-        btnPrint.className = 'flex items-center gap-1.5 px-3 py-1 rounded-lg bg-emerald-500/20 border border-emerald-500/50 text-emerald-300 font-bold cursor-pointer hover:bg-emerald-500/30 transition shadow-sm';
+        btnPrint.innerHTML = '<span>🗺️ Mode Peta Cetak (HD)</span>';
+        btnPrint.className = 'flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-emerald-500/20 border border-emerald-500/50 text-emerald-300 font-bold cursor-pointer hover:bg-emerald-500/30 transition shadow-sm ml-auto';
       }
 
-      if (is3DMode) {
-        initAndRender3DTerrain(data);
-      } else {
-        toggleLayers();
-      }
+      // Show tactical legend bar
+      const legendBar = document.getElementById('map-legend-bar');
+      if (legendBar) legendBar.classList.remove('hidden');
+
+      toggleLayers();
 
       // Update AI Indicators in Step 2 Panel
       if (data.firebreak_plan && data.firebreak_plan.wind) {
@@ -712,397 +704,6 @@
       if (imgDet) imgDet.classList.toggle('hidden', !showDet);
       if (imgFire) imgFire.classList.toggle('hidden', !showFire);
       if (imgTacticalOverlay) imgTacticalOverlay.classList.toggle('hidden', !showTactical);
-    }
-
-    // =========================================================================
-    // 3D Photogrammetric Drone Terrain Reconstruction Engine (Three.js WebGL)
-    // =========================================================================
-    let is3DMode = false;
-    let threeRenderer = null;
-    let threeScene = null;
-    let threeCamera = null;
-    let threeControls = null;
-    let threeAnimationId = null;
-    let threeFireLight = null;
-    let threeSmokeParticles = null;
-
-    function toggle3DView() {
-      if (!latestAnalysisData) {
-        alert('Silakan muat sampel demo atau unggah citra drone terlebih dahulu.');
-        return;
-      }
-
-      is3DMode = !is3DMode;
-      const btn = document.getElementById('btn-toggle-3d');
-      const threeContainer = document.getElementById('three-container');
-      const threeHud = document.getElementById('three-hud');
-
-      if (is3DMode) {
-        if (isFullPrintMapMode) {
-          isFullPrintMapMode = false;
-          const btnPrint = document.getElementById('btn-view-print-map');
-          if (btnPrint) btnPrint.innerHTML = '<span>🗺️ Peta Cetak (HD)</span>';
-        }
-
-        btn.innerHTML = '<span>🛰️ Kembali ke 2D Multi-Layer</span>';
-        btn.className = 'flex items-center gap-1.5 px-3 py-1 rounded-lg bg-sky-500/20 border border-sky-500/50 text-sky-300 font-bold cursor-pointer hover:bg-sky-500/30 transition shadow-sm ml-auto';
-
-        threeContainer.classList.remove('hidden');
-        threeHud.classList.remove('hidden');
-
-        // Hide 2D image overlays
-        document.getElementById('img-original').classList.add('hidden');
-        document.getElementById('video-original').classList.add('hidden');
-        document.getElementById('img-vari').classList.add('hidden');
-        document.getElementById('img-detections').classList.add('hidden');
-        document.getElementById('img-firebreak').classList.add('hidden');
-        document.getElementById('img-tactical-overlay').classList.add('hidden');
-        document.getElementById('img-tactical-full').classList.add('hidden');
-
-        initAndRender3DTerrain(latestAnalysisData);
-      } else {
-        btn.innerHTML = '<span>🌐 Mode 3D Terrain Drone</span>';
-        btn.className = 'flex items-center gap-1.5 px-3 py-1 rounded-lg bg-indigo-500/20 border border-indigo-500/50 text-indigo-300 font-bold cursor-pointer hover:bg-indigo-500/30 transition shadow-sm ml-auto';
-
-        threeContainer.classList.add('hidden');
-        threeHud.classList.add('hidden');
-
-        if (threeAnimationId) {
-          cancelAnimationFrame(threeAnimationId);
-          threeAnimationId = null;
-        }
-
-        toggleLayers();
-      }
-    }
-
-    function getTerrainHeightAt(u, v) {
-      // Natural photogrammetric elevation profile (Digital Surface Model relief)
-      // Generates hills, slopes, ridges, and valleys typical of drone terrain mapping
-      const nx = (u - 0.5) * 4.0;
-      const ny = (v - 0.5) * 4.0;
-      const h1 = Math.sin(nx * 1.5) * Math.cos(ny * 1.2) * 4.2;
-      const h2 = Math.cos(nx * 0.8 + ny * 1.1) * 3.5;
-      const h3 = Math.sin(nx * 2.8 - ny * 2.2) * 1.4;
-      const ridge = Math.exp(-(nx * nx * 0.8 + ny * ny * 0.5)) * 6.5;
-      return Math.max(-2.0, h1 + h2 + h3 + ridge);
-    }
-
-    function initAndRender3DTerrain(data) {
-      const container = document.getElementById('three-container');
-      const width = container.clientWidth || 800;
-      const height = container.clientHeight || 580;
-
-      if (!threeRenderer) {
-        threeScene = new THREE.Scene();
-        threeScene.background = new THREE.Color(0x070d18);
-
-        threeCamera = new THREE.PerspectiveCamera(45, width / height, 0.1, 1000);
-        // Oblique bird-eye viewpoint (camera looking down at 45 degree angle)
-        threeCamera.position.set(0, -95, 80);
-        threeCamera.up.set(0, 0, 1);
-
-        threeRenderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-        threeRenderer.setSize(width, height);
-        threeRenderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-        threeRenderer.shadowMap.enabled = true;
-        threeRenderer.shadowMap.type = THREE.PCFSoftShadowMap;
-        container.innerHTML = '';
-        container.appendChild(threeRenderer.domElement);
-
-        threeControls = new THREE.OrbitControls(threeCamera, threeRenderer.domElement);
-        threeControls.enableDamping = true;
-        threeControls.dampingFactor = 0.05;
-        threeControls.maxPolarAngle = Math.PI / 2 - 0.05; // Prevent flipping under terrain
-        threeControls.minDistance = 35;
-        threeControls.maxDistance = 240;
-
-        // Ambient Light
-        const amb = new THREE.AmbientLight(0xffffff, 0.7);
-        threeScene.add(amb);
-
-        // Sun Directional Light (creates topographic relief shadows)
-        const sun = new THREE.DirectionalLight(0xfff7e6, 0.85);
-        sun.position.set(60, -70, 90);
-        sun.castShadow = true;
-        threeScene.add(sun);
-
-        window.addEventListener('resize', () => {
-          if (!is3DMode || !container) return;
-          const w = container.clientWidth;
-          const h = container.clientHeight;
-          if (threeCamera && threeRenderer && w > 0 && h > 0) {
-            threeCamera.aspect = w / h;
-            threeCamera.updateProjectionMatrix();
-            threeRenderer.setSize(w, h);
-          }
-        });
-      }
-
-      // Clear dynamic objects (preserve camera, lights)
-      while (threeScene.children.length > 2) {
-        threeScene.remove(threeScene.children[threeScene.children.length - 1]);
-      }
-
-      // Build Photogrammetric 3D Terrain
-      const planeW = 120;
-      const planeH = 90;
-      const segX = 120;
-      const segY = 90;
-      const geom = new THREE.PlaneGeometry(planeW, planeH, segX, segY);
-
-      // Displace vertices to form 3D terrain elevation (DSM)
-      const pos = geom.attributes.position;
-      for (let i = 0; i < pos.count; i++) {
-        const x = pos.getX(i);
-        const y = pos.getY(i);
-        const u = (x / planeW) + 0.5;
-        const v = 0.5 - (y / planeH);
-        const z = getTerrainHeightAt(u, v);
-        pos.setZ(i, z);
-      }
-      geom.computeVertexNormals();
-
-      // Texture terrain with actual drone aerial composite / tactical map
-      const textureUrl = (data.layers && data.layers.tactical_map_url)
-        ? data.layers.tactical_map_url
-        : (data.layers && data.layers.original_image_url ? data.layers.original_image_url : '/static/uploads/sample_aerial.jpg');
-
-      const texLoader = new THREE.TextureLoader();
-      texLoader.load(textureUrl + '?t=' + Date.now(), (tex) => {
-        tex.wrapS = THREE.ClampToEdgeWrapping;
-        tex.wrapT = THREE.ClampToEdgeWrapping;
-        tex.anisotropy = threeRenderer.capabilities.getMaxAnisotropy();
-
-        const mat = new THREE.MeshStandardMaterial({
-          map: tex,
-          roughness: 0.85,
-          metalness: 0.1,
-          side: THREE.DoubleSide
-        });
-
-        const terrainMesh = new THREE.Mesh(geom, mat);
-        terrainMesh.receiveShadow = true;
-        terrainMesh.castShadow = true;
-        threeScene.add(terrainMesh);
-      });
-
-      // 3D Architectural Foundation Pedestal (Like Agisoft Metashape elevation block)
-      const baseGeom = new THREE.BoxGeometry(planeW + 2, planeH + 2, 6);
-      const baseMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.9 });
-      const baseMesh = new THREE.Mesh(baseGeom, baseMat);
-      baseMesh.position.set(0, 0, -4.5);
-      threeScene.add(baseMesh);
-
-      // -------------------------------------------------------------
-      // 3D Precision Firebreak Ribbon (Koridor Penyekatan di Atas Lereng)
-      // -------------------------------------------------------------
-      const traj = data.firebreak_plan ? data.firebreak_plan.trajectory : null;
-      const metrics = data.summary || (data.firebreak_plan ? data.firebreak_plan.metrics : {});
-      const imgW = (data.vari_analysis && data.vari_analysis.total_pixels) ? 800 : 800;
-      const imgH = 600;
-
-      if (traj && traj.start_point && traj.end_point) {
-        const p1 = traj.start_point;
-        const p2 = traj.end_point;
-
-        // Convert 2D pixel coordinates to 3D world plane coordinates
-        const u1 = p1.x / imgW;
-        const v1 = p1.y / imgH;
-        const x1_3d = (u1 - 0.5) * planeW;
-        const y1_3d = (0.5 - v1) * planeH;
-
-        const u2 = p2.x / imgW;
-        const v2 = p2.y / imgH;
-        const x2_3d = (u2 - 0.5) * planeW;
-        const y2_3d = (0.5 - v2) * planeH;
-
-        // Spread / Normal direction for ribbon width
-        const dx = x2_3d - x1_3d;
-        const dy = y2_3d - y1_3d;
-        const len = Math.hypot(dx, dy);
-        const nx = -dy / len;
-        const ny = dx / len;
-
-        const ribbonWidth = Math.max(2.5, (metrics.recommended_width_meters || 4.0) * 0.6);
-        const halfW = ribbonWidth / 2;
-
-        const numSteps = 50;
-        const ribbonGeom = new THREE.BufferGeometry();
-        const vertices = [];
-        const indices = [];
-
-        for (let i = 0; i <= numSteps; i++) {
-          const t = i / numSteps;
-          const cx = x1_3d + dx * t;
-          const cy = y1_3d + dy * t;
-          const u_curr = (cx / planeW) + 0.5;
-          const v_curr = 0.5 - (cy / planeH);
-          const z_curr = getTerrainHeightAt(u_curr, v_curr) + 0.35; // slightly elevated to avoid z-fighting
-
-          // Left vertex
-          vertices.push(cx - nx * halfW, cy - ny * halfW, z_curr);
-          // Right vertex
-          vertices.push(cx + nx * halfW, cy + ny * halfW, z_curr);
-
-          if (i < numSteps) {
-            const v0 = i * 2;
-            const v1 = v0 + 1;
-            const v2 = (i + 1) * 2;
-            const v3 = v2 + 1;
-            // Two triangles per quad
-            indices.push(v0, v1, v2);
-            indices.push(v1, v3, v2);
-          }
-        }
-
-        ribbonGeom.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
-        ribbonGeom.setIndex(indices);
-        ribbonGeom.computeVertexNormals();
-
-        // Glowing Amber Ribbon Material
-        const ribbonMat = new THREE.MeshStandardMaterial({
-          color: 0xf59e0b,
-          emissive: 0xd97706,
-          emissiveIntensity: 0.45,
-          roughness: 0.4,
-          side: THREE.DoubleSide
-        });
-
-        const ribbonMesh = new THREE.Mesh(ribbonGeom, ribbonMat);
-        threeScene.add(ribbonMesh);
-
-        // Dashed Centerline in Bright Yellow
-        const linePoints = [];
-        for (let i = 0; i <= numSteps; i++) {
-          const t = i / numSteps;
-          const cx = x1_3d + dx * t;
-          const cy = y1_3d + dy * t;
-          const z_curr = getTerrainHeightAt((cx / planeW) + 0.5, 0.5 - (cy / planeH)) + 0.45;
-          linePoints.push(new THREE.Vector3(cx, cy, z_curr));
-        }
-        const lineGeom = new THREE.BufferGeometry().setFromPoints(linePoints);
-        const lineMat = new THREE.LineBasicMaterial({ color: 0xfffbeb, linewidth: 2 });
-        const centerLine = new THREE.Line(lineGeom, lineMat);
-        threeScene.add(centerLine);
-
-        // -------------------------------------------------------------
-        // 3D Waypoint Beacons (Point A: Mulai, Point B: Selesai)
-        // -------------------------------------------------------------
-        const z1 = getTerrainHeightAt(u1, v1);
-        const z2 = getTerrainHeightAt(u2, v2);
-
-        // Waypoint A [MULAI] - Green Pole & Beacon
-        const poleAGeom = new THREE.CylinderGeometry(0.35, 0.35, 8, 12);
-        poleAGeom.rotateX(Math.PI / 2);
-        const poleAMat = new THREE.MeshStandardMaterial({ color: 0x22c55e, roughness: 0.3 });
-        const poleA = new THREE.Mesh(poleAGeom, poleAMat);
-        poleA.position.set(x1_3d, y1_3d, z1 + 4);
-        threeScene.add(poleA);
-
-        const beaconAGeom = new THREE.SphereGeometry(1.4, 16, 16);
-        const beaconAMat = new THREE.MeshStandardMaterial({ color: 0x4ade80, emissive: 0x22c55e, emissiveIntensity: 0.8 });
-        const beaconA = new THREE.Mesh(beaconAGeom, beaconAMat);
-        beaconA.position.set(x1_3d, y1_3d, z1 + 8.5);
-        threeScene.add(beaconA);
-
-        // Waypoint B [SELESAI] - Red Pole & Beacon
-        const poleBGeom = new THREE.CylinderGeometry(0.35, 0.35, 8, 12);
-        poleBGeom.rotateX(Math.PI / 2);
-        const poleBMat = new THREE.MeshStandardMaterial({ color: 0xef4444, roughness: 0.3 });
-        const poleB = new THREE.Mesh(poleBGeom, poleBMat);
-        poleB.position.set(x2_3d, y2_3d, z2 + 4);
-        threeScene.add(poleB);
-
-        const beaconBGeom = new THREE.SphereGeometry(1.4, 16, 16);
-        const beaconBMat = new THREE.MeshStandardMaterial({ color: 0xf87171, emissive: 0xef4444, emissiveIntensity: 0.8 });
-        const beaconB = new THREE.Mesh(beaconBGeom, beaconBMat);
-        beaconB.position.set(x2_3d, y2_3d, z2 + 8.5);
-        threeScene.add(beaconB);
-
-        // -------------------------------------------------------------
-        // 3D Active Fire Core & Flickering Thermal Light
-        // -------------------------------------------------------------
-        const threat = traj.threat_origin || { x: 400, y: 300 };
-        const ut = threat.x / imgW;
-        const vt = threat.y / imgH;
-        const xt_3d = (ut - 0.5) * planeW;
-        const yt_3d = (0.5 - vt) * planeH;
-        const zt = getTerrainHeightAt(ut, vt);
-
-        // Glowing Fire Core Cone
-        const fireGeom = new THREE.ConeGeometry(3.5, 7.0, 16);
-        fireGeom.rotateX(Math.PI / 2);
-        const fireMat = new THREE.MeshStandardMaterial({
-          color: 0xf97316,
-          emissive: 0xef4444,
-          emissiveIntensity: 0.9,
-          roughness: 0.2
-        });
-        const fireMesh = new THREE.Mesh(fireGeom, fireMat);
-        fireMesh.position.set(xt_3d, yt_3d, zt + 3.5);
-        threeScene.add(fireMesh);
-
-        // Point Light casting warm thermal light on terrain
-        threeFireLight = new THREE.PointLight(0xff4400, 2.2, 35);
-        threeFireLight.position.set(xt_3d, yt_3d, zt + 6.0);
-        threeScene.add(threeFireLight);
-
-        // 3D Floating Smoke Cloud Spheres
-        const smokeGroup = new THREE.Group();
-        const smokeMat = new THREE.MeshStandardMaterial({
-          color: 0x94a3b8,
-          transparent: true,
-          opacity: 0.45,
-          roughness: 0.95
-        });
-        for (let s = 0; s < 7; s++) {
-          const sGeom = new THREE.SphereGeometry(2.0 + s * 0.6, 12, 12);
-          const sMesh = new THREE.Mesh(sGeom, smokeMat);
-          sMesh.position.set(
-            xt_3d + (s * 2.2) + (Math.random() - 0.5) * 2,
-            yt_3d - (s * 2.5) + (Math.random() - 0.5) * 2,
-            zt + 8 + (s * 2.2)
-          );
-          smokeGroup.add(sMesh);
-        }
-        threeScene.add(smokeGroup);
-
-        // -------------------------------------------------------------
-        // 3D Wind Vector Arrow (Direction & Speed)
-        // -------------------------------------------------------------
-        const windDeg = (data.firebreak_plan && data.firebreak_plan.wind)
-          ? data.firebreak_plan.wind.direction_degrees
-          : 135;
-        const windRad = (windDeg * Math.PI) / 180;
-        const windDir = new THREE.Vector3(Math.sin(windRad), -Math.cos(windRad), 0).normalize();
-        const windOrigin = new THREE.Vector3(xt_3d, yt_3d, zt + 18);
-        const windArrow = new THREE.ArrowHelper(windDir, windOrigin, 16, 0x38bdf8, 4, 2.5);
-        threeScene.add(windArrow);
-      }
-
-      // Smooth camera entrance transition
-      threeControls.reset();
-      threeCamera.position.set(0, -95, 80);
-      threeControls.target.set(0, 0, 0);
-      threeControls.update();
-
-      // Render Loop
-      function animate() {
-        if (!is3DMode) return;
-        threeAnimationId = requestAnimationFrame(animate);
-
-        // Flickering fire light
-        if (threeFireLight) {
-          threeFireLight.intensity = 1.9 + Math.sin(Date.now() * 0.009) * 0.6 + Math.random() * 0.2;
-        }
-
-        threeControls.update();
-        threeRenderer.render(threeScene, threeCamera);
-      }
-
-      if (threeAnimationId) cancelAnimationFrame(threeAnimationId);
-      animate();
     }
 
     async function fetchWhatsAppDispatches(analysisData) {
