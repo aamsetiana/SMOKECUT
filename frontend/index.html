@@ -233,28 +233,31 @@
             <p class="text-xs text-slate-400">Komposisi citra drone RGB, flammability index VARI, dan rekomendasi jalur pemotongan api.</p>
           </div>
 
-          <!-- Layer Toggles -->
+          <!-- Layer Toggles & Mode Switcher -->
           <div class="flex flex-wrap items-center gap-2 text-xs">
-            <label class="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-emerald-500/20 border border-emerald-500/50 text-emerald-300 font-bold cursor-pointer hover:bg-emerald-500/30 transition shadow-sm">
-              <input type="checkbox" id="layer-tactical" checked onchange="toggleLayers()" class="rounded text-emerald-500" />
-              <span>🗺️ Peta Taktis Lahan</span>
+            <label class="flex items-center gap-1.5 px-2.5 py-1 rounded bg-slate-800/80 border border-slate-700 cursor-pointer hover:bg-slate-800 transition">
+              <input type="checkbox" id="layer-original" checked onchange="toggleLayers()" class="rounded text-sky-500" />
+              <span class="text-slate-200">Foto/Video Drone</span>
             </label>
-            <label class="flex items-center gap-1.5 px-2.5 py-1 rounded bg-slate-800/80 border border-slate-700 cursor-pointer hover:bg-slate-800">
-              <input type="checkbox" id="layer-original" onchange="document.getElementById('layer-tactical').checked=false; toggleLayers()" class="rounded text-sky-500" />
-              <span>Foto RGB</span>
+            <label class="flex items-center gap-1.5 px-2.5 py-1 rounded bg-slate-800/80 border border-slate-700 cursor-pointer hover:bg-slate-800 transition">
+              <input type="checkbox" id="layer-vari" checked onchange="toggleLayers()" class="rounded text-rose-500" />
+              <span class="text-rose-400 font-medium">Heatmap Semak Kering (VARI)</span>
             </label>
-            <label class="flex items-center gap-1.5 px-2.5 py-1 rounded bg-slate-800/80 border border-slate-700 cursor-pointer hover:bg-slate-800">
-              <input type="checkbox" id="layer-vari" onchange="document.getElementById('layer-tactical').checked=false; toggleLayers()" class="rounded text-rose-500" />
-              <span class="text-rose-400">Heatmap VARI</span>
+            <label class="flex items-center gap-1.5 px-2.5 py-1 rounded bg-slate-800/80 border border-slate-700 cursor-pointer hover:bg-slate-800 transition">
+              <input type="checkbox" id="layer-detections" checked onchange="toggleLayers()" class="rounded text-sky-400" />
+              <span class="text-sky-300 font-medium">Kontur Api & Asap</span>
             </label>
-            <label class="flex items-center gap-1.5 px-2.5 py-1 rounded bg-slate-800/80 border border-slate-700 cursor-pointer hover:bg-slate-800">
-              <input type="checkbox" id="layer-detections" onchange="document.getElementById('layer-tactical').checked=false; toggleLayers()" class="rounded text-sky-400" />
-              <span class="text-sky-300">Kontur Api/Asap</span>
+            <label class="flex items-center gap-1.5 px-2.5 py-1 rounded bg-slate-800/80 border border-slate-700 cursor-pointer hover:bg-slate-800 transition">
+              <input type="checkbox" id="layer-firebreak" checked onchange="toggleLayers()" class="rounded text-amber-400" />
+              <span class="text-amber-300 font-bold">Jalur Sekat Bakar (AI)</span>
             </label>
-            <label class="flex items-center gap-1.5 px-2.5 py-1 rounded bg-slate-800/80 border border-slate-700 cursor-pointer hover:bg-slate-800">
-              <input type="checkbox" id="layer-firebreak" onchange="document.getElementById('layer-tactical').checked=false; toggleLayers()" class="rounded text-amber-400" />
-              <span class="text-amber-300">Jalur Sekat Bakar</span>
+            <label class="flex items-center gap-1.5 px-2.5 py-1 rounded bg-slate-800/80 border border-slate-700 cursor-pointer hover:bg-slate-800 transition">
+              <input type="checkbox" id="layer-tactical-overlay" checked onchange="toggleLayers()" class="rounded text-emerald-500" />
+              <span class="text-emerald-400 font-medium">Overlay Taktis Lahan</span>
             </label>
+            <button id="btn-view-print-map" type="button" onclick="toggleFullPrintMap()" class="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-emerald-500/20 border border-emerald-500/50 text-emerald-300 font-bold cursor-pointer hover:bg-emerald-500/30 transition shadow-sm ml-auto">
+              <span>🗺️ Mode Peta Cetak (HD)</span>
+            </button>
           </div>
         </div>
 
@@ -269,13 +272,18 @@
             <p class="text-xs text-slate-500 max-w-sm mt-1">Unggah foto/video drone dari panel kiri atau klik tombol "Muat Sampel Demo" untuk menjalankan demonstrasi instan.</p>
           </div>
 
-          <!-- Composite Layers -->
+          <!-- Base Media -->
           <video id="video-original" class="layer-canvas hidden" autoplay loop muted playsinline></video>
-          <img id="img-tactical" class="layer-canvas hidden" alt="Tactical Land Map" />
           <img id="img-original" class="layer-canvas hidden" alt="Original Drone" />
+
+          <!-- Multi-Layer Overlays -->
           <img id="img-vari" class="layer-canvas hidden" alt="VARI Overlay" />
           <img id="img-detections" class="layer-canvas hidden" alt="Detections Overlay" />
           <img id="img-firebreak" class="layer-canvas hidden" alt="Firebreak Overlay" />
+          <img id="img-tactical-overlay" class="layer-canvas hidden" alt="Tactical Overlay" />
+
+          <!-- Standalone Full Cartographic Print Map -->
+          <img id="img-tactical-full" class="layer-canvas hidden" alt="Full Tactical Cartography Map" />
         </div>
       </section>
 
@@ -478,27 +486,52 @@
       const imgVari = document.getElementById('img-vari');
       const imgDet = document.getElementById('img-detections');
       const imgFire = document.getElementById('img-firebreak');
+      const imgTacticalOverlay = document.getElementById('img-tactical-overlay');
+      const imgTacticalFull = document.getElementById('img-tactical-full');
 
       const isVideo = data.media_type === 'video' && (data.video_url || (data.layers && data.layers.video_url));
       const videoSrc = isVideo ? (data.video_url || data.layers.video_url) : null;
 
       if (isVideo && videoSrc) {
-        imgOrig.classList.add('hidden');
-        vidOrig.src = videoSrc;
-        vidOrig.classList.remove('hidden');
-        vidOrig.play().catch(e => console.log('Autoplay:', e));
+        if (imgOrig) imgOrig.classList.add('hidden');
+        if (vidOrig) {
+          vidOrig.src = videoSrc;
+          vidOrig.classList.remove('hidden');
+          vidOrig.play().catch(e => console.log('Autoplay:', e));
+        }
       } else {
-        try { vidOrig.pause(); } catch(e){}
-        vidOrig.classList.add('hidden');
-        imgOrig.src = data.layers.original_image_url + '?t=' + Date.now();
-        imgOrig.classList.remove('hidden');
+        if (vidOrig) {
+          try { vidOrig.pause(); } catch(e){}
+          vidOrig.classList.add('hidden');
+        }
+        if (imgOrig && data.layers && data.layers.original_image_url) {
+          imgOrig.src = data.layers.original_image_url + '?t=' + Date.now();
+          imgOrig.classList.remove('hidden');
+        }
       }
 
-      imgVari.src = data.layers.vari_heatmap_url + '?t=' + Date.now();
-      imgDet.src = data.layers.detection_overlay_url + '?t=' + Date.now();
-      imgFire.src = data.layers.firebreak_overlay_url + '?t=' + Date.now();
-      if (data.layers && data.layers.tactical_map_url) {
-        document.getElementById('img-tactical').src = data.layers.tactical_map_url + '?t=' + Date.now();
+      if (imgVari && data.layers && data.layers.vari_heatmap_url) {
+        imgVari.src = data.layers.vari_heatmap_url + '?t=' + Date.now();
+      }
+      if (imgDet && data.layers && data.layers.detection_overlay_url) {
+        imgDet.src = data.layers.detection_overlay_url + '?t=' + Date.now();
+      }
+      if (imgFire && data.layers && data.layers.firebreak_overlay_url) {
+        imgFire.src = data.layers.firebreak_overlay_url + '?t=' + Date.now();
+      }
+      if (imgTacticalOverlay && data.layers && data.layers.tactical_overlay_url) {
+        imgTacticalOverlay.src = data.layers.tactical_overlay_url + '?t=' + Date.now();
+      }
+      if (imgTacticalFull && data.layers && data.layers.tactical_map_url) {
+        imgTacticalFull.src = data.layers.tactical_map_url + '?t=' + Date.now();
+      }
+
+      // Reset full print mode on new analysis and apply layers
+      isFullPrintMapMode = false;
+      const btnPrint = document.getElementById('btn-view-print-map');
+      if (btnPrint) {
+        btnPrint.innerHTML = '<span>🗺️ Mode Peta Cetak (HD)</span>';
+        btnPrint.className = 'flex items-center gap-1.5 px-3 py-1 rounded-lg bg-emerald-500/20 border border-emerald-500/50 text-emerald-300 font-bold cursor-pointer hover:bg-emerald-500/30 transition shadow-sm ml-auto';
       }
 
       toggleLayers();
@@ -565,37 +598,85 @@
       document.getElementById('metric-buffer').textContent = s.effective_safety_buffer_meters + ' m';
     }
 
-    function toggleLayers() {
-      const isTactical = document.getElementById('layer-tactical').checked;
-      const orig = document.getElementById('layer-original').checked;
-      const vari = document.getElementById('layer-vari').checked;
-      const det = document.getElementById('layer-detections').checked;
-      const fire = document.getElementById('layer-firebreak').checked;
+    let isFullPrintMapMode = false;
 
-      const isVideo = latestAnalysisData && latestAnalysisData.media_type === 'video';
-      const imgTactical = document.getElementById('img-tactical');
-
-      if (isTactical && !isVideo && imgTactical && imgTactical.getAttribute('src')) {
-        imgTactical.classList.remove('hidden');
-        document.getElementById('img-original').classList.add('hidden');
-        document.getElementById('video-original').classList.add('hidden');
-        document.getElementById('img-vari').classList.add('hidden');
-        document.getElementById('img-detections').classList.add('hidden');
-        document.getElementById('img-firebreak').classList.add('hidden');
-      } else {
-        if (imgTactical) imgTactical.classList.add('hidden');
-        if (isVideo) {
-          document.getElementById('video-original').classList.toggle('hidden', !orig);
-          document.getElementById('img-original').classList.add('hidden');
-        } else {
-          document.getElementById('img-original').classList.toggle('hidden', !orig);
-          document.getElementById('video-original').classList.add('hidden');
-        }
-
-        document.getElementById('img-vari').classList.toggle('hidden', !vari);
-        document.getElementById('img-detections').classList.toggle('hidden', !det);
-        document.getElementById('img-firebreak').classList.toggle('hidden', !fire);
+    function toggleFullPrintMap() {
+      if (!latestAnalysisData) {
+        alert('Silakan muat sampel demo atau unggah citra terlebih dahulu.');
+        return;
       }
+      isFullPrintMapMode = !isFullPrintMapMode;
+      const btn = document.getElementById('btn-view-print-map');
+      if (btn) {
+        if (isFullPrintMapMode) {
+          btn.innerHTML = '<span>🛰️ Kembali ke Multi-Layer</span>';
+          btn.className = 'flex items-center gap-1.5 px-3 py-1 rounded-lg bg-sky-500/20 border border-sky-500/50 text-sky-300 font-bold cursor-pointer hover:bg-sky-500/30 transition shadow-sm ml-auto';
+        } else {
+          btn.innerHTML = '<span>🗺️ Mode Peta Cetak (HD)</span>';
+          btn.className = 'flex items-center gap-1.5 px-3 py-1 rounded-lg bg-emerald-500/20 border border-emerald-500/50 text-emerald-300 font-bold cursor-pointer hover:bg-emerald-500/30 transition shadow-sm ml-auto';
+        }
+      }
+      toggleLayers();
+    }
+
+    function toggleLayers() {
+      if (!latestAnalysisData) return;
+
+      const isVideo = latestAnalysisData.media_type === 'video' && latestAnalysisData.video_url;
+      const vidOrig = document.getElementById('video-original');
+      const imgOrig = document.getElementById('img-original');
+      const imgVari = document.getElementById('img-vari');
+      const imgDet = document.getElementById('img-detections');
+      const imgFire = document.getElementById('img-firebreak');
+      const imgTacticalOverlay = document.getElementById('img-tactical-overlay');
+      const imgTacticalFull = document.getElementById('img-tactical-full');
+
+      if (isFullPrintMapMode) {
+        // Show standalone tactical cartography print map
+        if (imgTacticalFull) imgTacticalFull.classList.remove('hidden');
+        if (vidOrig) {
+          try { vidOrig.pause(); } catch(e){}
+          vidOrig.classList.add('hidden');
+        }
+        if (imgOrig) imgOrig.classList.add('hidden');
+        if (imgVari) imgVari.classList.add('hidden');
+        if (imgDet) imgDet.classList.add('hidden');
+        if (imgFire) imgFire.classList.add('hidden');
+        if (imgTacticalOverlay) imgTacticalOverlay.classList.add('hidden');
+        return;
+      }
+
+      // Normal Multi-Layer Mode ("pemetaan lahan seperti biasanya")
+      if (imgTacticalFull) imgTacticalFull.classList.add('hidden');
+
+      const showOrig = document.getElementById('layer-original') ? document.getElementById('layer-original').checked : true;
+      const showVari = document.getElementById('layer-vari') ? document.getElementById('layer-vari').checked : true;
+      const showDet = document.getElementById('layer-detections') ? document.getElementById('layer-detections').checked : true;
+      const showFire = document.getElementById('layer-firebreak') ? document.getElementById('layer-firebreak').checked : true;
+      const showTactical = document.getElementById('layer-tactical-overlay') ? document.getElementById('layer-tactical-overlay').checked : true;
+
+      if (isVideo) {
+        if (imgOrig) imgOrig.classList.add('hidden');
+        if (vidOrig) {
+          vidOrig.classList.toggle('hidden', !showOrig);
+          if (showOrig) {
+            vidOrig.play().catch(e => console.log('Autoplay:', e));
+          } else {
+            try { vidOrig.pause(); } catch(e){}
+          }
+        }
+      } else {
+        if (vidOrig) {
+          try { vidOrig.pause(); } catch(e){}
+          vidOrig.classList.add('hidden');
+        }
+        if (imgOrig) imgOrig.classList.toggle('hidden', !showOrig);
+      }
+
+      if (imgVari) imgVari.classList.toggle('hidden', !showVari);
+      if (imgDet) imgDet.classList.toggle('hidden', !showDet);
+      if (imgFire) imgFire.classList.toggle('hidden', !showFire);
+      if (imgTacticalOverlay) imgTacticalOverlay.classList.toggle('hidden', !showTactical);
     }
 
     async function fetchWhatsAppDispatches(analysisData) {
