@@ -304,7 +304,7 @@ class TacticalMapGenerator:
 
         for d_ctx in [draw, draw_carto]:
             d_ctx.rectangle([hx0, hy0, hx1, hy1], fill=(15, 23, 42, 235), outline=(245, 158, 11, 240), width=2)
-            d_ctx.text((hx0 + 12, hy0 + 8), "PETA TAKTIS PEMOTONGAN SEKAT LAHAN (SMOKECUT AI)", fill=(245, 158, 11, 255))
+            d_ctx.text((hx0 + 12, hy0 + 8), "PETA TAKTIS PEMOTONGAN SEKAT LAHAN (SEKAT-AI)", fill=(245, 158, 11, 255))
             d_ctx.text((hx0 + 12, hy0 + 26), f"Target: Panjang {cut_len}m  |  Lebar {rec_width}m  |  Buffer {int(eff_buffer)}m", fill=(255, 255, 255, 250))
             d_ctx.text((hx0 + 12, hy0 + 44), f"Titik Awal  [A]: Lat {gps_s.get('latitude', -0.2285)}, Lon {gps_s.get('longitude', 101.5542)}", fill=(34, 197, 94, 240))
             d_ctx.text((hx0 + 12, hy0 + 60), f"Titik Akhir [B]: Lat {gps_e.get('latitude', -0.2295)}, Lon {gps_e.get('longitude', 101.5562)}", fill=(239, 68, 68, 240))
