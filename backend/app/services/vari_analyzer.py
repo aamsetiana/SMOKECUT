@@ -109,17 +109,17 @@ class VARIAnalyzer:
             risk_level = "RENDAH"
             risk_description = "Didominasi tanaman hijau lembap. Lahan aman dan tahan dari sambaran api."
 
-        # Generate RGBA Heatmap Overlay
+        # Generate RGBA Heatmap Overlay with subtle, elegant semi-transparent flammability tint
         overlay_arr = np.zeros((h, w, 4), dtype=np.uint8)
 
-        # Dry Fuel: Red (239, 68, 68) with 40% alpha (102)
-        overlay_arr[dry_mask] = [239, 68, 68, 115]
+        # Dry Fuel: Soft Red (239, 68, 68) with ~20% alpha (52)
+        overlay_arr[dry_mask] = [239, 68, 68, 52]
 
-        # Moderate: Amber/Yellow (245, 158, 11) with 30% alpha (76)
-        overlay_arr[moderate_mask] = [245, 158, 11, 80]
+        # Moderate: Soft Amber (245, 158, 11) with ~15% alpha (38)
+        overlay_arr[moderate_mask] = [245, 158, 11, 38]
 
-        # Safe: Emerald Green (16, 185, 129) with 25% alpha (64)
-        overlay_arr[safe_mask] = [16, 185, 129, 65]
+        # Safe: Soft Emerald Green (16, 185, 129) with ~12% alpha (30)
+        overlay_arr[safe_mask] = [16, 185, 129, 30]
 
         overlay_img = Image.fromarray(overlay_arr)
         overlay_filename = f"vari_overlay_{image_id}.png"

@@ -4,6 +4,7 @@ Provides lightweight, deterministic Computer Vision detection as a primary / fal
 engine, with optional YOLOv8 inference if local weights are present.
 """
 
+import math
 from pathlib import Path
 from typing import Dict, Any, List, Union
 import numpy as np
@@ -171,6 +172,9 @@ class FireSmokeDetector:
         overlay = Image.new("RGBA", (w, h), (0, 0, 0, 0))
         draw = ImageDraw.Draw(overlay)
 
+        drawn_tags = []
+        fire_tags_count = 0
+        smoke_tags_count = 0
         for det in detections:
             bbox = det["bbox"]
             x0, y0 = bbox["x"], bbox["y"]
@@ -180,23 +184,38 @@ class FireSmokeDetector:
             if det["class_name"] == "hotspot":
                 color_box = (239, 68, 68, 240)  # Bright Red
                 color_fill = (239, 68, 68, 65)
-                label_text = f"🔥 TITIK API ({int(det['confidence']*100)}%)"
                 # Multi-layer thermal glow around fire core
-                draw.ellipse([x0 - 6, y0 - 6, x1 + 6, y1 + 6], fill=(239, 68, 68, 50), outline=(239, 68, 68, 180), width=2)
+                draw.ellipse([x0 - 5, y0 - 5, x1 + 5, y1 + 5], fill=(239, 68, 68, 50), outline=(239, 68, 68, 180), width=2)
                 draw.ellipse([x0, y0, x1, y1], fill=(249, 115, 22, 180), outline=(255, 255, 255, 240), width=2)
+
+                # Only draw tag badge if under limit and does not collide with a nearby tag
+                can_label = (fire_tags_count < 2) and not any(math.hypot(x0 - tx, y0 - ty) < 120 for tx, ty in drawn_tags)
+                if can_label:
+                    label_text = f"🔥 API AKTIF {int(det['confidence']*100)}%"
+                    tag_w = max(80, len(label_text) * 6 + 10)
+                    tag_h = 16
+                    tag_y0 = max(0, y0 - tag_h - 2)
+                    draw.rectangle([x0, tag_y0, x0 + tag_w, tag_y0 + tag_h], fill=(15, 23, 42, 225), outline=color_box, width=1)
+                    draw.text((x0 + 4, tag_y0 + 2), label_text, fill=(255, 255, 255, 255))
+                    drawn_tags.append((x0, y0))
+                    fire_tags_count += 1
             else:
-                color_box = (56, 189, 248, 220)  # Light Sky Blue
-                color_fill = (56, 189, 248, 35)
-                label_text = f"💨 KEPULAN ASAP ({int(det['confidence']*100)}%)"
+                color_box = (56, 189, 248, 200)  # Light Sky Blue
+                color_fill = (56, 189, 248, 28)
                 # Rounded organic plume boundary
                 draw.rounded_rectangle([x0, y0, x1, y1], radius=max(6, min(16, w_b // 4)), outline=color_box, fill=color_fill, width=2)
 
-            # Draw tactical HUD tag badge
-            tag_w = max(90, len(label_text) * 7 + 12)
-            tag_h = 17
-            tag_y0 = max(0, y0 - tag_h - 2)
-            draw.rectangle([x0, tag_y0, x0 + tag_w, tag_y0 + tag_h], fill=(15, 23, 42, 225), outline=color_box, width=1)
-            draw.text((x0 + 6, tag_y0 + 2), label_text, fill=(255, 255, 255, 255))
+                # Only label primary smoke plumes
+                can_label = (smoke_tags_count < 1) and (w_b * h_b > 2000) and not any(math.hypot(x0 - tx, y0 - ty) < 140 for tx, ty in drawn_tags)
+                if can_label:
+                    label_text = f"💨 ASAP PM2.5 ({int(det['confidence']*100)}%)"
+                    tag_w = max(90, len(label_text) * 6 + 10)
+                    tag_h = 16
+                    tag_y0 = max(0, y0 - tag_h - 2)
+                    draw.rectangle([x0, tag_y0, x0 + tag_w, tag_y0 + tag_h], fill=(15, 23, 42, 225), outline=color_box, width=1)
+                    draw.text((x0 + 4, tag_y0 + 2), label_text, fill=(255, 255, 255, 255))
+                    drawn_tags.append((x0, y0))
+                    smoke_tags_count += 1
 
         overlay_filename = f"detections_{image_id}.png"
         overlay_path = OUTPUT_DIR / overlay_filename

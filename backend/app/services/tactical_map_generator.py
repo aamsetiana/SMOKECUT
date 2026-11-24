@@ -64,9 +64,14 @@ class TacticalMapGenerator:
             except Exception:
                 pass
 
-        # Create transparent map overlay
+        # Create overlays:
+        # 1. Full map overlay (contains all unified elements for standalone cartographic print map)
         map_overlay = Image.new("RGBA", (w, h), (0, 0, 0, 0))
         draw = ImageDraw.Draw(map_overlay)
+
+        # 2. Dedicated cartographic overlay for multi-layer dashboard view (scale, compass, HUD, fuel zone outlines)
+        carto_overlay = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+        draw_carto = ImageDraw.Draw(carto_overlay)
 
         # -------------------------------------------------------------
         # 1. Fuel Bed Polygon Contours (Zonasi Bahan Bakar Kering)
@@ -82,7 +87,7 @@ class TacticalMapGenerator:
             zone_idx = 1
             for cnt in contours:
                 area_px = cv2.contourArea(cnt)
-                if area_px < 400:  # Skip tiny speckles
+                if area_px < 600:  # Skip tiny speckles
                     continue
 
                 area_m2 = area_px * (self.pixel_to_meter ** 2)
@@ -94,8 +99,9 @@ class TacticalMapGenerator:
                 poly_pts = [(int(pt[0][0]), int(pt[0][1])) for pt in approx]
 
                 if len(poly_pts) >= 3:
-                    # Draw semi-transparent fuel polygon
-                    draw.polygon(poly_pts, fill=(239, 68, 68, 48), outline=(239, 68, 68, 160))
+                    # Draw clean vector fuel polygon with light fill
+                    draw.polygon(poly_pts, fill=(239, 68, 68, 24), outline=(239, 68, 68, 180))
+                    draw_carto.polygon(poly_pts, fill=(239, 68, 68, 16), outline=(239, 68, 68, 160))
 
                     # Compute polygon center for labeling
                     m = cv2.moments(cnt)
@@ -105,8 +111,11 @@ class TacticalMapGenerator:
                         if 40 <= lbl_x <= w - 120 and 40 <= lbl_y <= h - 40:
                             label_str = f"ZONA BAHAN BAKAR #{zone_idx} ({area_ha:.2f} Ha)"
                             lbl_w = max(110, len(label_str) * 6 + 12)
-                            draw.rectangle([lbl_x - lbl_w//2, lbl_y - 9, lbl_x + lbl_w//2, lbl_y + 9], fill=(15, 23, 42, 210), outline=(239, 68, 68, 180))
+                            draw.rectangle([lbl_x - lbl_w//2, lbl_y - 9, lbl_x + lbl_w//2, lbl_y + 9], fill=(15, 23, 42, 215), outline=(239, 68, 68, 180))
                             draw.text((lbl_x - lbl_w//2 + 6, lbl_y - 7), label_str, fill=(252, 165, 165, 240))
+
+                            draw_carto.rectangle([lbl_x - lbl_w//2, lbl_y - 9, lbl_x + lbl_w//2, lbl_y + 9], fill=(15, 23, 42, 215), outline=(239, 68, 68, 180))
+                            draw_carto.text((lbl_x - lbl_w//2 + 6, lbl_y - 7), label_str, fill=(252, 165, 165, 240))
 
                     fuel_zones_metadata.append({
                         "zone_id": zone_idx,
@@ -117,29 +126,35 @@ class TacticalMapGenerator:
                     zone_idx += 1
 
         # -------------------------------------------------------------
-        # 2. Fire Contours & Smoke Hazard Dispersion Plumes
+        # 2. Fire Contours & Smoke Hazard Dispersion Plumes (for Full Map)
         # -------------------------------------------------------------
         actual_hotspots = [d for d in detections if d.get("class_name") == "hotspot"]
         actual_smokes = [d for d in detections if d.get("class_name") == "smoke"]
 
         # 2a. Smoke dispersion hazard plumes
+        labeled_smoke = False
         for s_item in actual_smokes:
             bbox = s_item["bbox"]
             sx0, sy0 = bbox["x"], bbox["y"]
             sx1, sy1 = sx0 + bbox["w"], sy0 + bbox["h"]
-            # Draw rounded hazard cloud perimeter
-            draw.rounded_rectangle([sx0, sy0, sx1, sy1], radius=12, fill=(56, 189, 248, 40), outline=(56, 189, 248, 140), width=2)
-            draw.text((sx0 + 6, max(6, sy0 - 14)), "💨 ZONA DISPERSI ASAP PM2.5", fill=(186, 230, 253, 240))
+            draw.rounded_rectangle([sx0, sy0, sx1, sy1], radius=12, fill=(56, 189, 248, 25), outline=(56, 189, 248, 140), width=2)
+            if not labeled_smoke:
+                draw.text((sx0 + 6, max(6, sy0 - 14)), "💨 ZONA DISPERSI ASAP PM2.5", fill=(186, 230, 253, 240))
+                labeled_smoke = True
 
         # 2b. Organic Fire Perimeters
         for h_item in actual_hotspots:
             bbox = h_item["bbox"]
             hx, hy = bbox["x"], bbox["y"]
             hw, hh = bbox["w"], bbox["h"]
-            # Multi-layer thermal glow around fire core
-            draw.ellipse([hx - 8, hy - 8, hx + hw + 8, hy + hh + 8], fill=(239, 68, 68, 60), outline=(239, 68, 68, 180), width=2)
-            draw.ellipse([hx, hy, hx + hw, hy + hh], fill=(249, 115, 22, 190), outline=(255, 255, 255, 230), width=2)
-            draw.text((hx + hw + 10, hy - 4), "🔥 INTI API AKTIF", fill=(254, 202, 202, 255))
+            draw.ellipse([hx - 6, hy - 6, hx + hw + 6, hy + hh + 6], fill=(239, 68, 68, 45), outline=(239, 68, 68, 160), width=2)
+            draw.ellipse([hx, hy, hx + hw, hy + hh], fill=(249, 115, 22, 180), outline=(255, 255, 255, 230), width=2)
+
+        # Draw a single clean fire label at the center of fire front
+        if actual_hotspots:
+            avg_hx = int(sum(h["bbox"]["x"] + h["bbox"]["w"]//2 for h in actual_hotspots) / len(actual_hotspots))
+            avg_hy = int(sum(h["bbox"]["y"] for h in actual_hotspots) / len(actual_hotspots))
+            draw.text((avg_hx + 10, max(10, avg_hy - 14)), "🔥 INTI API AKTIF", fill=(254, 202, 202, 255))
 
         # -------------------------------------------------------------
         # 3. Firebreak Cutting Swath, Interception Vector, & Buffer
@@ -246,48 +261,54 @@ class TacticalMapGenerator:
         # -------------------------------------------------------------
         # 4. Cartography: Compass Rose, Scale Bar, Grid, & Legend
         # -------------------------------------------------------------
-        # 4a. Geospatial Corner Crosshairs
+        # 4a. Geospatial Corner Crosshairs (draw on both print map and carto overlay)
         for crx, cry in [(30, 30), (w - 30, 30), (30, h - 30), (w - 30, h - 30)]:
             draw.line([(crx - 10, cry), (crx + 10, cry)], fill=(148, 163, 184, 180), width=1)
             draw.line([(crx, cry - 10), (crx, cry + 10)], fill=(148, 163, 184, 180), width=1)
+            draw_carto.line([(crx - 10, cry), (crx + 10, cry)], fill=(148, 163, 184, 180), width=1)
+            draw_carto.line([(crx, cry - 10), (crx, cry + 10)], fill=(148, 163, 184, 180), width=1)
 
         # 4b. Compass Rose at Top-Right
         rose_cx, rose_cy = w - 65, 65
-        draw.ellipse([rose_cx - 26, rose_cy - 26, rose_cx + 26, rose_cy + 26], fill=(15, 23, 42, 210), outline=(56, 189, 248, 220), width=2)
-        draw.polygon([(rose_cx, rose_cy - 22), (rose_cx - 5, rose_cy), (rose_cx, rose_cy - 4)], fill=(239, 68, 68, 255))
-        draw.polygon([(rose_cx, rose_cy - 22), (rose_cx + 5, rose_cy), (rose_cx, rose_cy - 4)], fill=(255, 255, 255, 255))
-        draw.polygon([(rose_cx, rose_cy + 22), (rose_cx - 5, rose_cy), (rose_cx, rose_cy + 4)], fill=(148, 163, 184, 255))
-        draw.polygon([(rose_cx, rose_cy + 22), (rose_cx + 5, rose_cy), (rose_cx, rose_cy + 4)], fill=(203, 213, 225, 255))
-        draw.text((rose_cx - 4, rose_cy - 36), "U", fill=(239, 68, 68, 255))
-        draw.text((rose_cx - 40, rose_cy + 30), f"Angin: {wind_p.get('speed_kmh', 14)} km/j", fill=(255, 255, 255, 220))
-        draw.text((rose_cx - 40, rose_cy + 44), f"Arah: {wind_p.get('direction_compass', 'Tenggara')}", fill=(56, 189, 248, 230))
+        for d_ctx in [draw, draw_carto]:
+            d_ctx.ellipse([rose_cx - 26, rose_cy - 26, rose_cx + 26, rose_cy + 26], fill=(15, 23, 42, 210), outline=(56, 189, 248, 220), width=2)
+            d_ctx.polygon([(rose_cx, rose_cy - 22), (rose_cx - 5, rose_cy), (rose_cx, rose_cy - 4)], fill=(239, 68, 68, 255))
+            d_ctx.polygon([(rose_cx, rose_cy - 22), (rose_cx + 5, rose_cy), (rose_cx, rose_cy - 4)], fill=(255, 255, 255, 255))
+            d_ctx.polygon([(rose_cx, rose_cy + 22), (rose_cx - 5, rose_cy), (rose_cx, rose_cy + 4)], fill=(148, 163, 184, 255))
+            d_ctx.polygon([(rose_cx, rose_cy + 22), (rose_cx + 5, rose_cy), (rose_cx, rose_cy + 4)], fill=(203, 213, 225, 255))
+            d_ctx.text((rose_cx - 4, rose_cy - 36), "U", fill=(239, 68, 68, 255))
+            d_ctx.text((rose_cx - 40, rose_cy + 30), f"Angin: {wind_p.get('speed_kmh', 14)} km/j", fill=(255, 255, 255, 220))
+            d_ctx.text((rose_cx - 40, rose_cy + 44), f"Arah: {wind_p.get('direction_compass', 'Tenggara')}", fill=(56, 189, 248, 230))
 
         # 4c. Operational Scale Bar at Bottom-Right
         # 50 meters = 200 pixels at 0.25 m/pixel
         bar_w = 200
         bx0, by0 = w - bar_w - 30, h - 45
-        draw.rectangle([bx0 - 10, by0 - 18, bx0 + bar_w + 10, by0 + 20], fill=(15, 23, 42, 220), outline=(100, 116, 139, 180), width=1)
-        draw.line([(bx0, by0), (bx0 + bar_w, by0)], fill=(255, 255, 255, 255), width=3)
-        draw.line([(bx0, by0 - 5), (bx0, by0 + 5)], fill=(255, 255, 255, 255), width=2)
-        draw.line([(bx0 + bar_w//2, by0 - 5), (bx0 + bar_w//2, by0 + 5)], fill=(255, 255, 255, 255), width=2)
-        draw.line([(bx0 + bar_w, by0 - 5), (bx0 + bar_w, by0 + 5)], fill=(255, 255, 255, 255), width=2)
-        draw.text((bx0 - 3, by0 - 16), "0m", fill=(255, 255, 255, 230))
-        draw.text((bx0 + bar_w//2 - 10, by0 - 16), "25m", fill=(255, 255, 255, 230))
-        draw.text((bx0 + bar_w - 12, by0 - 16), "50m", fill=(255, 255, 255, 230))
-        draw.text((bx0 + bar_w//2 - 28, by0 + 5), "Skala Drone", fill=(148, 163, 184, 220))
+        for d_ctx in [draw, draw_carto]:
+            d_ctx.rectangle([bx0 - 10, by0 - 18, bx0 + bar_w + 10, by0 + 20], fill=(15, 23, 42, 220), outline=(100, 116, 139, 180), width=1)
+            d_ctx.line([(bx0, by0), (bx0 + bar_w, by0)], fill=(255, 255, 255, 255), width=3)
+            d_ctx.line([(bx0, by0 - 5), (bx0, by0 + 5)], fill=(255, 255, 255, 255), width=2)
+            d_ctx.line([(bx0 + bar_w//2, by0 - 5), (bx0 + bar_w//2, by0 + 5)], fill=(255, 255, 255, 255), width=2)
+            d_ctx.line([(bx0 + bar_w, by0 - 5), (bx0 + bar_w, by0 + 5)], fill=(255, 255, 255, 255), width=2)
+            d_ctx.text((bx0 - 3, by0 - 16), "0m", fill=(255, 255, 255, 230))
+            d_ctx.text((bx0 + bar_w//2 - 10, by0 - 16), "25m", fill=(255, 255, 255, 230))
+            d_ctx.text((bx0 + bar_w - 12, by0 - 16), "50m", fill=(255, 255, 255, 230))
+            d_ctx.text((bx0 + bar_w//2 - 28, by0 + 5), "Skala Drone", fill=(148, 163, 184, 220))
 
         # 4d. Tactical HUD Card at Bottom-Left
         card_w, card_h = 360, 96
         hx0, hy0 = 25, max(20, h - card_h - 25)
         hx1, hy1 = hx0 + card_w, hy0 + card_h
-        draw.rectangle([hx0, hy0, hx1, hy1], fill=(15, 23, 42, 235), outline=(245, 158, 11, 240), width=2)
-        draw.text((hx0 + 12, hy0 + 8), "PETA TAKTIS PEMOTONGAN SEKAT LAHAN (SMOKECUT AI)", fill=(245, 158, 11, 255))
-        draw.text((hx0 + 12, hy0 + 26), f"Target: Panjang {cut_len}m  |  Lebar {rec_width}m  |  Buffer {int(eff_buffer)}m", fill=(255, 255, 255, 250))
         gps_s = firebreak_plan.get("gps_coordinates", {}).get("start", {})
         gps_e = firebreak_plan.get("gps_coordinates", {}).get("end", {})
-        draw.text((hx0 + 12, hy0 + 44), f"Titik Awal  [A]: Lat {gps_s.get('latitude', -0.2285)}, Lon {gps_s.get('longitude', 101.5542)}", fill=(34, 197, 94, 240))
-        draw.text((hx0 + 12, hy0 + 60), f"Titik Akhir [B]: Lat {gps_e.get('latitude', -0.2295)}, Lon {gps_e.get('longitude', 101.5562)}", fill=(239, 68, 68, 240))
-        draw.text((hx0 + 12, hy0 + 76), f"Estimasi: ~{metrics.get('estimated_clearing_hours', 4.1)} Jam (Regu 5 Orang)  |  Lindungi: {metrics.get('protected_area_hectares', 1.95)} Ha", fill=(148, 163, 184, 230))
+
+        for d_ctx in [draw, draw_carto]:
+            d_ctx.rectangle([hx0, hy0, hx1, hy1], fill=(15, 23, 42, 235), outline=(245, 158, 11, 240), width=2)
+            d_ctx.text((hx0 + 12, hy0 + 8), "PETA TAKTIS PEMOTONGAN SEKAT LAHAN (SMOKECUT AI)", fill=(245, 158, 11, 255))
+            d_ctx.text((hx0 + 12, hy0 + 26), f"Target: Panjang {cut_len}m  |  Lebar {rec_width}m  |  Buffer {int(eff_buffer)}m", fill=(255, 255, 255, 250))
+            d_ctx.text((hx0 + 12, hy0 + 44), f"Titik Awal  [A]: Lat {gps_s.get('latitude', -0.2285)}, Lon {gps_s.get('longitude', 101.5542)}", fill=(34, 197, 94, 240))
+            d_ctx.text((hx0 + 12, hy0 + 60), f"Titik Akhir [B]: Lat {gps_e.get('latitude', -0.2295)}, Lon {gps_e.get('longitude', 101.5562)}", fill=(239, 68, 68, 240))
+            d_ctx.text((hx0 + 12, hy0 + 76), f"Estimasi: ~{metrics.get('estimated_clearing_hours', 4.1)} Jam (Regu 5 Orang)  |  Lindungi: {metrics.get('protected_area_hectares', 1.95)} Ha", fill=(148, 163, 184, 230))
 
         # Composite base image with tactical overlay
         composite_map = Image.alpha_composite(pil_base, map_overlay)
@@ -299,7 +320,7 @@ class TacticalMapGenerator:
 
         tactical_overlay_filename = f"tactical_overlay_{image_id}.png"
         tactical_overlay_path = OUTPUT_DIR / tactical_overlay_filename
-        map_overlay.save(tactical_overlay_path, "PNG")
+        carto_overlay.save(tactical_overlay_path, "PNG")
 
         return {
             "tactical_map_filename": tactical_map_filename,
