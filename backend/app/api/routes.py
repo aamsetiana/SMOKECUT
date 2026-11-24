@@ -1,13 +1,17 @@
 """REST API Routes for SEKAT-AI Core Engine."""
 
-import os
+import hashlib
+import json
+import re
 import uuid
 import shutil
 from pathlib import Path
 from typing import Union, Optional, Dict, Any
 from fastapi import APIRouter, UploadFile, File, HTTPException
 from pydantic import BaseModel, Field
-from PIL import Image
+import cv2
+import numpy as np
+from PIL import Image, ImageOps
 
 from backend.app.core.config import UPLOADS_DIR, SAMPLES_DIR, OUTPUT_DIR
 from backend.app.services.vari_analyzer import vari_analyzer
@@ -19,6 +23,51 @@ router = APIRouter(prefix="/api", tags=["Analysis & Dispatch"])
 
 ALLOWED_IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png"}
 ALLOWED_VIDEO_EXTENSIONS = {".mp4", ".mov", ".avi"}
+
+MAX_WORK_SIDE = 1280  # Analysis resolution: keeps results and speed resolution-independent
+
+
+def extract_keyframe(video_path: Path, frame_path: Path) -> Optional[int]:
+    """Save the most informative video frame, resized for analysis; return its index."""
+    idx = fire_detector.select_keyframe(video_path)
+    if idx is None:
+        return None
+    cap = cv2.VideoCapture(str(video_path))
+    cap.set(cv2.CAP_PROP_POS_FRAMES, idx)
+    ok, frame = cap.read()
+    cap.release()
+    if not ok:
+        return None
+    scale = MAX_WORK_SIDE / max(frame.shape[:2])
+    if scale < 1:
+        frame = cv2.resize(frame, None, fx=scale, fy=scale, interpolation=cv2.INTER_AREA)
+    cv2.imwrite(str(frame_path), frame, [cv2.IMWRITE_JPEG_QUALITY, 95])
+    frame_path.with_suffix(".json").write_text(json.dumps({"keyframe": idx}))
+    return idx
+
+
+def prepare_image(source: Path, image_id: str) -> Path:
+    """Return an upright copy limited to MAX_WORK_SIDE, or the source if already fine."""
+    with Image.open(source) as img:
+        rotated = img.getexif().get(0x0112, 1) != 1
+        if max(img.size) <= MAX_WORK_SIDE and not rotated:
+            return source
+        work = ImageOps.exif_transpose(img).convert("RGB")
+    work.thumbnail((MAX_WORK_SIDE, MAX_WORK_SIDE), Image.LANCZOS)
+    path = UPLOADS_DIR / f"{image_id}_work.jpg"
+    work.save(path, "JPEG", quality=95)
+    return path
+
+
+def fire_region_mask(detections: list, flames: np.ndarray) -> np.ndarray:
+    """Accepted fire regions plus small flames close to them, without distant noise."""
+    mask = np.zeros(flames.shape, dtype=np.uint8)
+    for det in detections:
+        if det["class_name"] == "hotspot":
+            cv2.fillPoly(mask, [np.array(det["contour"], dtype=np.int32)], 1)
+    radius = max(1, int(0.05 * max(flames.shape)))
+    near = cv2.distanceTransform(1 - mask, cv2.DIST_L2, 5) <= radius if mask.any() else np.zeros_like(flames)
+    return mask.astype(bool) | (flames & near)
 
 
 class AnalyzeRequest(BaseModel):
@@ -80,24 +129,12 @@ async def upload_media(file: UploadFile = File(...)):
             pass
 
         try:
-            import cv2
-            cap = cv2.VideoCapture(str(dest_path))
-            if cap.isOpened():
-                total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-                fps = cap.get(cv2.CAP_PROP_FPS) or 25
-                target_frame = min(int(fps * 1.0), max(0, total_frames - 1))
-                cap.set(cv2.CAP_PROP_POS_FRAMES, target_frame)
-                ret, frame = cap.read()
-                if not ret:
-                    cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
-                    ret, frame = cap.read()
-                if ret:
-                    height, width = frame.shape[:2]
-                    frame_filename = f"{image_id}_frame.jpg"
-                    cv2.imwrite(str(UPLOADS_DIR / frame_filename), frame)
-                    preview_url = f"/static/uploads/{frame_filename}"
-            cap.release()
-        except Exception:
+            frame_path = UPLOADS_DIR / f"{image_id}_frame.jpg"
+            if extract_keyframe(dest_path, frame_path) is not None:
+                with Image.open(frame_path) as img:
+                    width, height = img.size
+                preview_url = f"/static/uploads/{frame_path.name}"
+        except cv2.error:
             pass
 
     return {
@@ -128,12 +165,15 @@ async def analyze_aerial_image(request: AnalyzeRequest):
         if sample_vid.exists():
             target_path = sample_vid
             image_id = "sample_drone_fire"
-    elif image_id != "sample":
+    elif image_id not in ("sample", "sample_aerial"):
+        if not re.fullmatch(r"[A-Za-z0-9_-]+", image_id):
+            raise HTTPException(status_code=404, detail="File citra tidak ditemukan.")
         matching = list(UPLOADS_DIR.glob(f"{image_id}.*"))
-        if matching:
-            target_path = matching[0]
+        if not matching:
+            # Never answer with another site's firebreak plan
+            raise HTTPException(status_code=404, detail="File citra tidak ditemukan. Unggah ulang foto/video.")
+        target_path = matching[0]
 
-    # Fallback to sample image if not found or requested
     if target_path is None or not target_path.exists():
         sample_path = SAMPLES_DIR / "sample_aerial.jpg"
         if sample_path.exists():
@@ -146,26 +186,25 @@ async def analyze_aerial_image(request: AnalyzeRequest):
     analysis_image_path = target_path
     if target_path.suffix.lower() in ALLOWED_VIDEO_EXTENSIONS:
         extracted = UPLOADS_DIR / f"{image_id}_frame.jpg"
-        if not extracted.exists():
-            try:
-                import cv2
-                cap = cv2.VideoCapture(str(target_path))
-                if cap.isOpened():
-                    ret, frame = cap.read()
-                    if ret:
-                        cv2.imwrite(str(extracted), frame)
-                    cap.release()
-            except Exception:
-                pass
-        if extracted.exists():
-            analysis_image_path = extracted
+        meta = extracted.with_suffix(".json")
+        if not (extracted.exists() and meta.exists()):
+            if extract_keyframe(target_path, extracted) is None:
+                raise HTTPException(status_code=400, detail="Video tidak dapat dibaca.")
+        keyframe = json.loads(meta.read_text())["keyframe"]
+        analysis_image_path = extracted
+    else:
+        analysis_image_path = prepare_image(target_path, image_id)
 
-    # 1. VARI Flammability Fuel Mapping
-    vari_res = vari_analyzer.analyze_image(analysis_image_path, image_id=image_id)
-    dimensions = vari_res["dimensions"]
-
-    # 2. Smoke & Hotspot Detection
+    # 1. Smoke & Hotspot Detection (also tells which pixels are unburnt land)
     fire_res = fire_detector.detect(analysis_image_path, image_id=image_id)
+    masks = fire_res["masks"]
+
+    # 2. VARI Flammability Fuel Mapping on unburnt land only
+    vari_res = vari_analyzer.analyze_image(analysis_image_path, image_id=image_id, valid_mask=masks.fuel)
+    dimensions = vari_res["dimensions"]
+    if fire_res["hotspot_count"] > 0 and vari_res["statistics"]["risk_level"] != "TINGGI":
+        vari_res["statistics"]["risk_level"] = "TINGGI"
+        vari_res["statistics"]["risk_description"] = "Api aktif terdeteksi. Segera buat sekat bakar di depan garis api."
 
     # Resolve Wind Parameters (Auto-detection via Vision if unknown or not specified)
     from backend.app.services.weather_service import estimate_wind_from_vision
@@ -223,6 +262,8 @@ async def analyze_aerial_image(request: AnalyzeRequest):
         firebreak_width_meters=adaptive_width,
         image_id=image_id,
         is_auto_wind=bool(wind_estimation is not None),
+        fire_mask=fire_region_mask(fire_res["detections"], masks.fire),
+        fuel_mask=masks.fuel,
     )
 
     # 4. Integrated Tactical Land Cover & Firebreak Operational Map
@@ -239,25 +280,27 @@ async def analyze_aerial_image(request: AnalyzeRequest):
     # Prepare preview URL for base original image/frame and dynamic video
     video_url = None
     detection_overlay_url = fire_res["overlay_url"]
+    firebreak_overlay_url = firebreak_res["overlay_url"]
+    vari_overlay_url = vari_res["overlay_url"]
 
     if target_path.suffix.lower() in ALLOWED_VIDEO_EXTENSIONS:
         original_url = f"/static/uploads/{image_id}_frame.jpg"
-        annotated_video = UPLOADS_DIR / f"{image_id}_annotated.mp4"
+        # The plan depends on the parameters, so it is part of the cached file name
+        key = json.dumps([firebreak_res["trajectory"], firebreak_res["metrics"], keyframe], sort_keys=True)
+        digest = hashlib.sha1(key.encode()).hexdigest()[:8]
+        annotated_video = UPLOADS_DIR / f"{image_id}_annotated_{digest}.mp4"
         if not annotated_video.exists():
-            fire_detector.annotate_video(target_path, annotated_video)
+            fire_detector.annotate_video(
+                target_path, annotated_video, firebreak_res, keyframe, dimensions["width"]
+            )
+        video_url = f"/static/uploads/{(annotated_video if annotated_video.exists() else target_path).name}"
 
-        if annotated_video.exists():
-            video_url = f"/static/uploads/{image_id}_annotated.mp4"
-        else:
-            video_url = f"/static/uploads/{target_path.name}"
-
-        # In video mode, bounding boxes move inside the video frames
+        # Ground-anchored layers are burned into the moving video; static copies would drift
         empty_overlay_name = f"empty_overlay_{image_id}.png"
-        empty_overlay_path = OUTPUT_DIR / empty_overlay_name
-        if not empty_overlay_path.exists():
-            empty_img = Image.new("RGBA", (dimensions["width"], dimensions["height"]), (0, 0, 0, 0))
-            empty_img.save(empty_overlay_path, "PNG")
-        detection_overlay_url = f"/static/output/{empty_overlay_name}"
+        Image.new("RGBA", (dimensions["width"], dimensions["height"]), (0, 0, 0, 0)).save(
+            OUTPUT_DIR / empty_overlay_name, "PNG"
+        )
+        detection_overlay_url = firebreak_overlay_url = vari_overlay_url = f"/static/output/{empty_overlay_name}"
     elif target_path == SAMPLES_DIR / "sample_aerial.jpg":
         # Copy to output/uploads directory so it's accessible via HTTP static
         static_sample = UPLOADS_DIR / "sample_aerial.jpg"
@@ -265,7 +308,7 @@ async def analyze_aerial_image(request: AnalyzeRequest):
             shutil.copy(target_path, static_sample)
         original_url = "/static/uploads/sample_aerial.jpg"
     else:
-        original_url = f"/static/uploads/{target_path.name}"
+        original_url = f"/static/uploads/{analysis_image_path.name}"
 
     # Compile comprehensive analysis response
     response_payload = {
@@ -300,9 +343,9 @@ async def analyze_aerial_image(request: AnalyzeRequest):
             "video_url": video_url,
             "tactical_map_url": tactical_map_res["tactical_map_url"],
             "tactical_overlay_url": tactical_map_res["tactical_overlay_url"],
-            "vari_heatmap_url": vari_res["overlay_url"],
+            "vari_heatmap_url": vari_overlay_url,
             "detection_overlay_url": detection_overlay_url,
-            "firebreak_overlay_url": firebreak_res["overlay_url"],
+            "firebreak_overlay_url": firebreak_overlay_url,
         },
         "land_mapping": {
             "total_fuel_zones": tactical_map_res["total_fuel_zones"],
@@ -314,6 +357,7 @@ async def analyze_aerial_image(request: AnalyzeRequest):
         "wind_estimation": wind_estimation,
         "firebreak_plan": {
             "trajectory": firebreak_res["trajectory"],
+            "warnings": firebreak_res["warnings"],
             "metrics": firebreak_res["metrics"],
             "gps_coordinates": firebreak_res["gps_coordinates"],
             "wind": firebreak_res["wind_parameters"],

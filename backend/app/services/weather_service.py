@@ -121,8 +121,8 @@ def estimate_wind_from_vision(
             smoke_deg = (math.degrees(math.atan2(dx, -dy))) % 360.0
             # Wind comes FROM the opposite direction
             wind_from_deg = (smoke_deg + 180.0) % 360.0
-            # Estimate speed proportionally: larger plume drift implies stronger wind
-            est_speed = round(min(32.0, max(8.0, dist * 0.08)), 1)
+            # Speed cannot be measured from a single frame, so use the default
+            est_speed = default_speed
             compass = degrees_to_compass(wind_from_deg)
 
             return {
@@ -131,8 +131,8 @@ def estimate_wind_from_vision(
                 "speed_kmh": est_speed,
                 "is_auto_detected": True,
                 "estimation_method": "Dispersi Kepulan Asap Drone (Smoke Plume Drift)",
-                "confidence": "Tinggi (Terverifikasi Visual)",
-                "keterangan": f"Asap membubung ke arah {degrees_to_compass(smoke_deg)}, menandakan angin berembus dari {compass}.",
+                "confidence": "Rendah (arah relatif kamera, kecepatan asumsi)",
+                "keterangan": f"Asap membubung ke arah {degrees_to_compass(smoke_deg)}, perkiraan angin dari {compass} (relatif arah kamera; kecepatan asumsi).",
             }
 
     # Method 2: Fuel Gradient (flame spreads towards dense dry bushes)

@@ -51,6 +51,7 @@ class VARIAnalyzer:
         image_input: Union[str, Path, Image.Image, np.ndarray],
         image_id: str,
         is_bgr: bool = False,
+        valid_mask: Optional[np.ndarray] = None,
     ) -> Dict[str, Any]:
         """Perform complete VARI analysis and export visual overlay.
 
@@ -58,6 +59,8 @@ class VARIAnalyzer:
             image_input: File path, PIL Image, or NumPy array.
             image_id: Unique identifier for the image session.
             is_bgr: Set True if input is from cv2.imread (BGR format).
+            valid_mask: Pixels that are unburnt land. Smoke, sky, ash and flames
+                must be excluded because VARI is meaningless there.
 
         Returns:
             Dictionary containing fuel statistics, risk classification, and overlay path.
@@ -85,18 +88,16 @@ class VARIAnalyzer:
         vari_matrix = self.calculate_vari(rgb_arr)
 
         # Categorize zones
-        dry_mask = vari_matrix <= self.dry_threshold
-        moderate_mask = (vari_matrix > self.dry_threshold) & (vari_matrix <= self.moderate_threshold)
-        safe_mask = vari_matrix > self.moderate_threshold
+        valid = np.ones((h, w), dtype=bool) if valid_mask is None else valid_mask
+        valid_count = max(1, int(valid.sum()))
+        dry_mask = valid & (vari_matrix <= self.dry_threshold)
+        moderate_mask = valid & (vari_matrix > self.dry_threshold) & (vari_matrix <= self.moderate_threshold)
+        safe_mask = valid & (vari_matrix > self.moderate_threshold)
 
-        dry_count = int(np.sum(dry_mask))
-        moderate_count = int(np.sum(moderate_mask))
-        safe_count = int(np.sum(safe_mask))
-
-        dry_percentage = round((dry_count / total_pixels) * 100, 2)
-        moderate_percentage = round((moderate_count / total_pixels) * 100, 2)
-        safe_percentage = round((safe_count / total_pixels) * 100, 2)
-        mean_vari = round(float(np.mean(vari_matrix)), 4)
+        dry_percentage = round(float(dry_mask.sum()) / valid_count * 100, 2)
+        moderate_percentage = round(float(moderate_mask.sum()) / valid_count * 100, 2)
+        safe_percentage = round(float(safe_mask.sum()) / valid_count * 100, 2)
+        mean_vari = round(float(vari_matrix[valid].mean()), 4) if valid.any() else 0.0
 
         # Risk classification with clear, accessible Indonesian descriptions
         if dry_percentage >= 40.0:
@@ -124,7 +125,7 @@ class VARIAnalyzer:
         overlay_img = Image.fromarray(overlay_arr)
         overlay_filename = f"vari_overlay_{image_id}.png"
         overlay_path = OUTPUT_DIR / overlay_filename
-        overlay_img.save(overlay_path, "PNG")
+        overlay_img.save(overlay_path, "PNG", compress_level=1)
 
         return {
             "statistics": {

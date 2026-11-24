@@ -77,6 +77,11 @@ Metodologi: **Iteratif Bertahap & Berbasis Pengujian (TDD & Verifikasi Bertingka
   - Menghilangkan total duplikasi teks/ghosting ("Rambatan Terblokir", double HUD card, double wind compass, 15+ label api bertumpuk).
   - Standalone HD Print Map (`tactical_map_url`) menyatukan seluruh elemen dalam satu rendering tunggal siap cetak.
 
+- [x] 2.13 `[@Apliy]` Perbaikan akurasi deteksi & sekat bakar pada video drone nyata:
+  - Segmentasi api/asap/bahan bakar; satu kontur per garis api (bukan puluhan kotak), VARI hanya pada lahan belum terbakar.
+  - Sekat bakar melengkung mengikuti garis api, dan terkunci ke tanah pada video (pelacakan gerak kamera).
+  - Analisis pada sisi maks. 1280 px (hasil & waktu tidak bergantung resolusi); `image_id` tak dikenal kini 404.
+
 ---
 
 ### Fase 3: Antarmuka / Frontend Dashboard (SEKAT-AI Visualizer)
