@@ -233,6 +233,7 @@ async def analyze_aerial_image(request: AnalyzeRequest):
         detections=fire_res["detections"],
         firebreak_plan=firebreak_res,
         image_id=image_id,
+        vari_overlay=OUTPUT_DIR / vari_res["overlay_filename"],
     )
 
     # Prepare preview URL for base original image/frame and dynamic video

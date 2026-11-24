@@ -61,7 +61,12 @@ Metodologi: **Iteratif Bertahap & Berbasis Pengujian (TDD & Verifikasi Bertingka
 - [x] 2.9 Implementasi Mesin Pemetaan Lahan Taktis Terpadu (`backend/app/services/tactical_map_generator.py`):
   - Menggantikan kotak-kotak bounding box generik dengan kontur poligon organik api dan kerucut dispersi asap.
   - Segmentasi spasial poligon zona semak kering (hektare & m²) berbasis kontur indeks VARI.
-  - Rendering peta taktis kartografi lengkap (Skala meter resmi, kompas arah angin, crosshairs GPS, kartu HUD operasi lapangan, dan layer `tactical_map_url`).
+  - Komposisi blended indeks vegetasi VARI pada citra dasar lahan untuk visualisasi bahan bakar komprehensif.
+  - Rendering peta taktis kartografi lengkap (Skala meter resmi, kompas arah angin, crosshairs GPS, kartu HUD operasi lapangan, dan layer `tactical_map_url` + `tactical_overlay_url`).
+- [x] 2.10 Pemetaan Lahan Multi-Layer & Peta Cetak Taktis Interaktif (`frontend/index.html`):
+  - Mengembalikan tampilan multi-layer terpadu standar (Foto/Video Drone + Heatmap VARI Semak Kering + Kontur Api/Asap + Rekomendasi Sekat Bakar + Overlay Taktis Lahan) yang aktif secara default (*checked by default*).
+  - Mode Peta Cetak (HD) standalone switchable untuk kebutuhan komando darurat dan cetak peta resolusi tinggi.
+  - Dukungan video drone looping dengan live overlays tanpa black screen.
 
 ---
 

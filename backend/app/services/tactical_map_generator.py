@@ -32,6 +32,7 @@ class TacticalMapGenerator:
         detections: List[Dict[str, Any]],
         firebreak_plan: Dict[str, Any],
         image_id: str,
+        vari_overlay: Union[str, Path, Image.Image, np.ndarray, None] = None,
     ) -> Dict[str, Any]:
         """Renders an all-in-one tactical land and firebreak operational map."""
         if isinstance(base_image, (str, Path)):
@@ -44,6 +45,24 @@ class TacticalMapGenerator:
             raise ValueError(f"Unsupported image type: {type(base_image)}")
 
         w, h = pil_base.size
+
+        # Blend VARI heatmap onto base image so the tactical map shows the dry fuel land mapping
+        vari_target = vari_overlay or (OUTPUT_DIR / f"vari_overlay_{image_id}.png")
+        if vari_target is not None:
+            try:
+                pil_vari = None
+                if isinstance(vari_target, (str, Path)) and Path(vari_target).exists():
+                    pil_vari = Image.open(vari_target).convert("RGBA")
+                elif isinstance(vari_target, Image.Image):
+                    pil_vari = vari_target.convert("RGBA")
+                elif isinstance(vari_target, np.ndarray):
+                    pil_vari = Image.fromarray(vari_target).convert("RGBA")
+                if pil_vari is not None:
+                    if pil_vari.size != (w, h):
+                        pil_vari = pil_vari.resize((w, h))
+                    pil_base = Image.alpha_composite(pil_base, pil_vari)
+            except Exception:
+                pass
 
         # Create transparent map overlay
         map_overlay = Image.new("RGBA", (w, h), (0, 0, 0, 0))

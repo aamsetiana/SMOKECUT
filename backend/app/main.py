@@ -1,10 +1,10 @@
 """FastAPI main application entrypoint for SEKAT-AI."""
 
 from datetime import datetime, timezone
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 
 from backend.app.core.config import (
     APP_NAME,
@@ -45,8 +45,11 @@ app.mount("/static/uploads", StaticFiles(directory=str(UPLOADS_DIR)), name="uplo
 
 
 @app.get("/", tags=["Root"])
-def root():
-    """Root status summary endpoint."""
+def root(request: Request):
+    """Root status summary endpoint or dashboard response for web browsers."""
+    accept = request.headers.get("accept", "")
+    if "text/html" in accept and "application/json" not in accept:
+        return FileResponse(str(FRONTEND_INDEX))
     return {
         "app": APP_NAME,
         "version": APP_VERSION,
