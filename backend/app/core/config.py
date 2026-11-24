@@ -42,7 +42,3 @@ CORS_ORIGINS: List[str] = [
 
 # Analytical Defaults (VARI & Firebreak)
 VARI_DRY_THRESHOLD = 0.1  # Pixel VARI <= 0.1 is dry flammable fuel zone
-DEFAULT_FIREBREAK_WIDTH_METERS = 4.0  # Recommended width: 3 - 5 meters
-DEFAULT_SAFETY_BUFFER_METERS = 25.0  # Buffer distance from fire head
-DEFAULT_WIND_SPEED_KMH = 14.0  # Realistic default wind velocity
-DEFAULT_WIND_DIRECTION = "SE"  # Southeast (Tenggara) towards settlement

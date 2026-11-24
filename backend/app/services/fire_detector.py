@@ -245,14 +245,14 @@ class FireSmokeDetector:
         motions: List[np.ndarray] = []
         line: List[Any] = []
         to_start = np.eye(3)
-        if firebreak:
+        if firebreak and firebreak["trajectory"]["polyline"]:
             motions = self._frame_motions(input_video_path, max_frames)
             ratio = w / float(keyframe_width or w)
             traj = firebreak["trajectory"]
             points = traj["polyline"] + [traj["threat_origin"]]
             line = [(p["x"] * ratio, p["y"] * ratio) for p in points]
             metrics = firebreak["metrics"]
-            band = metrics["recommended_width_meters"] / firebreak["meters_per_pixel"] * ratio
+            band = firebreak["band_px"] * ratio if firebreak["band_px"] else None
             if motions:
                 to_start = np.linalg.inv(motions[min(keyframe, len(motions) - 1)])
 

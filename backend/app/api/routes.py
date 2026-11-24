@@ -14,6 +14,7 @@ import numpy as np
 from PIL import Image, ImageOps
 
 from backend.app.core.config import UPLOADS_DIR, SAMPLES_DIR, OUTPUT_DIR
+from backend.app.services.geo_metadata import read_drone_metadata
 from backend.app.services.vari_analyzer import vari_analyzer
 from backend.app.services.fire_detector import fire_detector
 from backend.app.services.firebreak_optimizer import firebreak_optimizer
@@ -75,7 +76,14 @@ class AnalyzeRequest(BaseModel):
     wind_direction: Optional[Union[str, float]] = Field(default=None, description="Wind direction in degrees (0-360), compass string, or None/'auto' for automatic visual detection")
     wind_speed: Optional[float] = Field(default=None, description="Wind velocity in km/h or None for automatic visual estimation")
     safety_buffer: Optional[float] = Field(default=None, description="Base safety buffer in meters or None for automatic AI estimation")
-    firebreak_width: Optional[float] = Field(default=None, description="Recommended firebreak cutting width in meters or None for automatic AI estimation")
+    firebreak_width: Optional[float] = Field(default=None, description="Operator width in meters; never below the Permen LHK 28/2021 standard")
+    fuel_height_m: Optional[float] = Field(default=None, gt=0, le=80, description="Height of the burning vegetation (m)")
+    protected_plant_height_m: Optional[float] = Field(default=None, gt=0, le=80, description="Height of the outermost protected plants (m)")
+    slope_wind_factor: Optional[float] = Field(default=None, ge=1, le=10, description="Slope-wind factor of the USFS safe separation rule")
+    ground_width_m: Optional[float] = Field(default=None, gt=0, description="Ground length covered by the longest image side (m)")
+    latitude: Optional[float] = Field(default=None, ge=-90, le=90, description="Latitude of the image centre")
+    longitude: Optional[float] = Field(default=None, ge=-180, le=180, description="Longitude of the image centre")
+    heading_deg: Optional[float] = Field(default=None, description="Compass bearing of image-up (degrees)")
 
 
 class DispatchRequest(BaseModel):
@@ -207,16 +215,13 @@ async def analyze_aerial_image(request: AnalyzeRequest):
         vari_res["statistics"]["risk_description"] = "Api aktif terdeteksi. Segera buat sekat bakar di depan garis api."
 
     # Resolve Wind Parameters (Auto-detection via Vision if unknown or not specified)
-    from backend.app.services.weather_service import estimate_wind_from_vision
+    from backend.app.services.weather_service import estimate_wind_from_vision, parse_wind_direction
 
     wind_dir = request.wind_direction
     wind_spd = request.wind_speed
     wind_estimation = None
 
-    is_dir_auto = (
-        wind_dir is None
-        or str(wind_dir).strip().upper() in ("AUTO", "UNKNOWN", "NONE", "")
-    )
+    is_dir_auto = parse_wind_direction(wind_dir) is None
     is_spd_auto = wind_spd is None or wind_spd <= 0
 
     if is_dir_auto or is_spd_auto:
@@ -230,26 +235,11 @@ async def analyze_aerial_image(request: AnalyzeRequest):
             wind_spd = wind_est["speed_kmh"]
         wind_estimation = wind_est
 
-    # Resolve Safety Buffer & Firebreak Width (Adaptive AI determination if not provided)
-    adaptive_width = request.firebreak_width
-    adaptive_buffer = request.safety_buffer
-
-    # If width is not explicitly specified, calculate based on risk level and fuel dryness
-    if adaptive_width is None or adaptive_width <= 0:
-        if fire_res["hotspot_count"] > 0:
-            if wind_spd >= 20.0 or vari_res["statistics"]["dry_fuel_percentage"] > 50.0:
-                adaptive_width = 5.0
-            else:
-                adaptive_width = 4.0
-        else:
-            adaptive_width = 3.0 if vari_res["statistics"]["dry_fuel_percentage"] < 35.0 else 4.0
-
-    # If safety buffer is not explicitly specified, calculate based on threat severity
-    if adaptive_buffer is None or adaptive_buffer <= 0:
-        if fire_res["hotspot_count"] > 0:
-            adaptive_buffer = 25.0 + min(15.0, fire_res["hotspot_count"] * 5.0)
-        else:
-            adaptive_buffer = 20.0
+    # Real scale and position: operator input wins over drone metadata
+    geo = read_drone_metadata(target_path)
+    for name in geo:
+        if getattr(request, name) is not None:
+            geo[name] = getattr(request, name)
 
     # 3. Firebreak Route Optimizer
     firebreak_res = firebreak_optimizer.optimize(
@@ -258,13 +248,20 @@ async def analyze_aerial_image(request: AnalyzeRequest):
         hotspots=fire_res["detections"],
         wind_direction=wind_dir,
         wind_speed_kmh=wind_spd,
-        safety_buffer_meters=adaptive_buffer,
-        firebreak_width_meters=adaptive_width,
+        safety_buffer_meters=request.safety_buffer,
+        firebreak_width_meters=request.firebreak_width,
+        fuel_height_m=request.fuel_height_m,
+        protected_plant_height_m=request.protected_plant_height_m,
+        slope_wind_factor=request.slope_wind_factor,
+        geo=geo,
         image_id=image_id,
-        is_auto_wind=bool(wind_estimation is not None),
+        is_auto_wind=is_dir_auto,
         fire_mask=fire_region_mask(fire_res["detections"], masks.fire),
         fuel_mask=masks.fuel,
     )
+
+    if request.ground_width_m:
+        firebreak_res["warnings"].append("Skala dari isian operator; hanya akurat bila kamera tegak lurus ke bawah.")
 
     # 4. Integrated Tactical Land Cover & Firebreak Operational Map
     from backend.app.services.tactical_map_generator import tactical_map_generator
@@ -310,6 +307,12 @@ async def analyze_aerial_image(request: AnalyzeRequest):
     else:
         original_url = f"/static/uploads/{analysis_image_path.name}"
 
+    metrics, wind = firebreak_res["metrics"], firebreak_res["wind_parameters"]
+    mpp = firebreak_res["meters_per_pixel"]
+    dry_hectares = round(float(vari_res["dry_mask"].sum()) * mpp ** 2 / 10000.0, 2) if mpp else None
+    length_text = f" sepanjang {metrics['cutting_length_meters']:g} m" if metrics["cutting_length_meters"] else ""
+    wind_speed_text = f" ({wind['speed_kmh']:g} km/jam)" if wind["speed_kmh"] else ""
+
     # Compile comprehensive analysis response
     response_payload = {
         "status": "success",
@@ -324,11 +327,18 @@ async def analyze_aerial_image(request: AnalyzeRequest):
                 "deteksi_bahaya": f"{fire_res['hotspot_count']} titik api dan {fire_res['smoke_count']} kepulan asap",
                 "estimasi_angin": (
                     wind_estimation["keterangan"]
-                    if wind_estimation
-                    else f"Angin berembus dari arah {firebreak_res['wind_parameters']['direction_compass']} ({firebreak_res['wind_parameters']['speed_kmh']} km/jam)"
+                    if is_dir_auto
+                    else f"Angin berembus dari arah {wind['direction_compass']}{wind_speed_text}"
                 ),
-                "instruksi_babat": f"Babat semak selebar {firebreak_res['metrics']['recommended_width_meters']}m sepanjang {firebreak_res['metrics']['cutting_length_meters']}m untuk memutus rambatan api",
-                "jarak_aman": f"Tim relawan wajib berjarak minimal {firebreak_res['metrics']['effective_safety_buffer_meters']}m dari arah api",
+                "instruksi_babat": (
+                    f"Bersihkan jalur selebar {metrics['recommended_width_meters']:g} m{length_text} "
+                    "sampai terlihat tanah permukaan (Permen LHK 28/2021)"
+                ),
+                "jarak_aman": (
+                    f"Tim wajib berjarak minimal {metrics['effective_safety_buffer_meters']:g} m dari api"
+                    if metrics["effective_safety_buffer_meters"]
+                    else "Belum dapat dihitung: isi tinggi vegetasi yang terbakar"
+                ),
             },
             "hotspots_detected": fire_res["hotspot_count"],
             "smoke_detected": fire_res["smoke_count"],
@@ -350,7 +360,7 @@ async def analyze_aerial_image(request: AnalyzeRequest):
         "land_mapping": {
             "total_fuel_zones": tactical_map_res["total_fuel_zones"],
             "fuel_zones": tactical_map_res["fuel_zones"],
-            "total_dry_hectares": firebreak_res["metrics"]["protected_area_hectares"],
+            "total_dry_hectares": dry_hectares,
         },
         "vari_analysis": vari_res["statistics"],
         "detections": fire_res["detections"],
@@ -358,6 +368,10 @@ async def analyze_aerial_image(request: AnalyzeRequest):
         "firebreak_plan": {
             "trajectory": firebreak_res["trajectory"],
             "warnings": firebreak_res["warnings"],
+            "standards": firebreak_res["standards"],
+            "is_to_scale": firebreak_res["is_to_scale"],
+            "is_partial": firebreak_res["is_partial"],
+            "meters_per_pixel": firebreak_res["meters_per_pixel"],
             "metrics": firebreak_res["metrics"],
             "gps_coordinates": firebreak_res["gps_coordinates"],
             "wind": firebreak_res["wind_parameters"],
