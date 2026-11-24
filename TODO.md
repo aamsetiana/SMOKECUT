@@ -90,28 +90,28 @@ Metodologi: **Iteratif Bertahap & Berbasis Pengujian (TDD & Verifikasi Bertingka
 ---
 
 ### Fase 3: Antarmuka / Frontend Dashboard (SEKAT-AI Visualizer)
-- [ ] 3.1 `[@Indra]` Bangun layout utama dashboard (`frontend/src/App.jsx`) dengan tema dark/geospatial modern, navbar status, dan indikator mode (Patroli Preventif vs Respons Cepat).
-- [ ] 3.2 `[@Indra]` Kembangkan komponen upload interaktif (`frontend/src/components/MediaUploader.jsx`) dengan drag-and-drop, tombol cepat sampel bawaan, validasi format (.mp4/.jpg), dan preview citra.
-- [ ] 3.3 `[@Indra]` Kembangkan kanvas penampil citra udara multi-layer (`frontend/src/components/AerialViewer.jsx`):
+- [x] 3.1 `[@Indra]` Bangun layout utama dashboard (`frontend/src/App.jsx`) dengan tema clean white & emerald green modern, navbar status, dan indikator mode (Patroli Preventif vs Respons Cepat).
+- [x] 3.2 `[@Indra]` Kembangkan komponen upload interaktif (`frontend/src/components/MediaUploader.jsx` & `AnalysisView.jsx`) dengan drag-and-drop, tombol cepat sampel bawaan, validasi format (.mp4/.jpg), dan preview citra.
+- [x] 3.3 `[@Indra]` Kembangkan kanvas penampil citra udara multi-layer (`frontend/src/components/AerialViewer.jsx` & `DashboardView.jsx`):
   - Layer 1: Citra asli (drone RGB view).
   - Layer 2 (Toggle): Heatmap VARI transparan (Zona Bahan Bakar Kering Merah/Kuning).
   - Layer 3 (Toggle): Bounding box deteksi asap mikro / api awal.
   - Layer 4 (Toggle): Garis putus-putus tebal rekomendasi sekat bakar optimal + label jarak.
   - Layer 5: Ikon dan vektor arah angin aktif.
-- [ ] 3.4 `[@Indra]` Kembangkan panel kontrol simulasi (`frontend/src/components/ControlPanel.jsx`):
+- [x] 3.4 `[@Indra]` Kembangkan panel kontrol simulasi (`frontend/src/components/ControlPanel.jsx` & `AnalysisView.jsx`):
   - Kontrol arah angin (kompas / sudut derajat) dan kecepatan angin (km/jam).
   - Pilihan lebar sekat bakar (3m, 4m, 5m) dan safety buffer slider.
   - Tombol aksi utama "Jalankan Analisis AI".
-- [ ] 3.5 `[@Indra]` Kembangkan kartu metrik analitik (`frontend/src/components/MetricsCard.jsx`):
-  - Estimasi panjang babatan (meter).
+- [x] 3.5 `[@Indra]` Kembangkan kartu metrik analitik (`frontend/src/components/MetricsCard.jsx` & `DashboardView.jsx`):
+  - Estimasi panjang babatan (meter / kilometer).
   - Estimasi luas lahan aman terlindungi (hektare).
   - Tingkat ancaman asap PM2.5 ke permukiman (Aman / Waspada / Bahaya).
   - Estimasi biomassa semak yang dapat diolah menjadi pakan/kompos.
-- [ ] 3.6 `[@Indra]` Kembangkan modul preview & dispatch WhatsApp (`frontend/src/components/WhatsAppModal.jsx`):
+- [x] 3.6 `[@Indra]` Kembangkan modul preview & dispatch WhatsApp (`frontend/src/components/WhatsAppModal.jsx` & `NotificationsView.jsx`):
   - Tampilan card notifikasi real-time untuk Tim MPA (Peta + Koordinat GPS).
   - Tampilan card peringatan dini untuk Warga Downwind.
   - Tombol aksi klik tautan deep-link `wa.me` langsung.
-- [ ] 3.7 `[@Indra]` & `[@Apliy]` Integrasikan API client (`frontend/src/services/api.js`) untuk komunikasi asinkron yang mulus antara frontend dan backend FastAPI sesuai `docs/API_CONTRACT.md`.
+- [x] 3.7 `[@Indra]` & `[@Apliy]` Integrasikan API client (`frontend/src/services/api.js`) untuk komunikasi asinkron yang mulus antara frontend dan backend FastAPI sesuai `docs/API_CONTRACT.md`.
 
 ---
 
@@ -119,14 +119,14 @@ Metodologi: **Iteratif Bertahap & Berbasis Pengujian (TDD & Verifikasi Bertingka
 - [ ] 4.1 `[@Aam]` Uji alur kerja *end-to-end* (Upload Foto/Video → Proses VARI & Jalur Sekat → Render Hasil di Dashboard → Kirim Notifikasi WhatsApp).
 - [ ] 4.2 `[@Aam]` Lakukan verifikasi mode offline (memastikan seluruh inferensi dan visualisasi dapat berjalan tanpa akses internet di laptop lapangan).
 - [x] 4.3 `[@Apliy]` Jalankan suite pengujian otomatis (`pytest backend/tests/ -v`) dan pastikan 100% lulus (*all tests passing*).
-- [ ] 4.4 `[@Indra]` & `[@Apliy]` Optimasi performa: pastikan kalkulasi VARI dan rendering canvas responsif (< 2 detik untuk citra resolusi drone standar).
+- [x] 4.4 `[@Indra]` & `[@Apliy]` Optimasi performa: pastikan kalkulasi VARI dan rendering canvas responsif (< 2 detik untuk citra resolusi drone standar).
 - [ ] 4.5 `[@Aam]` Siapkan panduan eksekusi cepat (*Quick Start Guide*) dan dokumentasi skenario pengujian di `README.md`.
 - [ ] 4.6 `[@Aam]` Buat checkpoint git commit untuk MVP yang stabil dan berfungsi penuh.
 
 ---
 
 ### Fase 5: Aset Presentasi & Finalisasi AIRIMPACT 2026
-- [ ] 5.1 `[@Indra]` Buat aset visual resolusi tinggi (Dashboard Mockup) untuk **Slide 5** sesuai panduan Bagian 4 Blueprint (Header dasbor, foto udara, overlay merah semak kering, garis putus-putus sekat bakar, panah arah angin, tombol kirim WA).
+- [x] 5.1 `[@Indra]` Buat aset visual resolusi tinggi (Dashboard Mockup) untuk **Slide 5** sesuai panduan Bagian 4 Blueprint (Header dasbor, foto udara, overlay merah semak kering, garis putus-putus sekat bakar, panah arah angin, tombol kirim WA).
 - [ ] 5.2 `[@Aam]` Siapkan rangkuman copywriting siap salin untuk 10 slide presentasi PPTX (Rasio 16:9, Font $\ge 18\text{ pt}$ isi, $\ge 12\text{ pt}$ referensi) sesuai Bagian 3 Blueprint.
 - [ ] 5.3 `[@Aam]` Validasi 6 kriteria penilaian juri: *Problem Relevance, Solution Innovation, Feasibility, Impact & Measurability, Behavior Change, Collaboration & Sustainability*.
 - [ ] 5.4 `[@Aam]` Lakukan audit kepatuhan terhadap **Checklist Final Anti-Diskualifikasi** (Bagian 6 Blueprint).
