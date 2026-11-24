@@ -1,7 +1,7 @@
 import React from 'react';
 import { Bell, Maximize2, Menu } from 'lucide-react';
 
-export default function Header({ title, subtitle, onOpenNotifications, onToggleMobileSidebar }) {
+export default function Header({ title, subtitle, onOpenNotifications, onToggleMobileSidebar, backendStatus, hasAlert }) {
   const toggleFullscreen = () => {
     if (!document.fullscreenElement) {
       document.documentElement.requestFullscreen().catch(() => {});
@@ -34,6 +34,19 @@ export default function Header({ title, subtitle, onOpenNotifications, onToggleM
       </div>
 
       <div className="flex items-center gap-3">
+        {/* Backend connection */}
+        <span
+          className={`hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-[11px] font-bold ${
+            backendStatus === 'ok'
+              ? 'bg-emerald-50 border-emerald-200 text-emerald-700'
+              : backendStatus === 'offline'
+                ? 'bg-rose-50 border-rose-200 text-rose-700'
+                : 'bg-slate-50 border-slate-200 text-slate-500'
+          }`}
+        >
+          {{ ok: 'Backend terhubung', offline: 'Backend terputus' }[backendStatus] || 'Memeriksa...'}
+        </span>
+
         {/* Notification Bell */}
         <button
           onClick={onOpenNotifications}
@@ -41,8 +54,7 @@ export default function Header({ title, subtitle, onOpenNotifications, onToggleM
           title="Notifikasi"
         >
           <Bell className="w-4 h-4" />
-          <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
-          <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-emerald-500" />
+          {hasAlert && <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-amber-500" />}
         </button>
 
         {/* Fullscreen Button */}

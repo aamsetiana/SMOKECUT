@@ -82,6 +82,7 @@ Metodologi: **Iteratif Bertahap & Berbasis Pengujian (TDD & Verifikasi Bertingka
   - Sekat bakar melengkung mengikuti garis api, dan terkunci ke tanah pada video (pelacakan gerak kamera).
   - Analisis pada sisi maks. 1280 px (hasil & waktu tidak bergantung resolusi); `image_id` tak dikenal kini 404.
 
+- [x] 2.15 `[@Apliy]` Frontend React memakai data asli backend tanpa angka tetap (perlu dikabarkan ke @Indra); halaman masuk `frontend/react.html`.
 - [x] 2.14 `[@Apliy]` Dimensi sekat bakar mengikuti standar tertulis (`backend/app/core/standards.py`):
   - Lebar: Permen LHK 28/2021 (3 x tinggi tanaman, min. 20 m); jarak aman: USFS (8 x faktor x tinggi vegetasi).
   - Panjang, luas, dan GPS hanya dihitung bila skala/posisi nyata ada (metadata drone atau isian); selain itu "belum ada data".

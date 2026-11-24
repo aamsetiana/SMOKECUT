@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import Sidebar from './components/Sidebar';
 import Header from './components/Header';
 import LoginView from './components/LoginView';
@@ -10,7 +10,25 @@ import NotificationsView from './components/NotificationsView';
 import HistoryView from './components/HistoryView';
 import SettingsView from './components/SettingsView';
 import WhatsAppModal from './components/WhatsAppModal';
-import { checkHealth, runAnalysis, DEFAULT_ANALYSIS_DATA } from './services/api';
+import { checkHealth } from './services/api';
+
+const MAX_HISTORY = 20;
+
+function loadStored(key, fallback) {
+  try {
+    return JSON.parse(localStorage.getItem(key)) || fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function store(key, value) {
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch {
+    // Storage full or blocked: the app keeps working without persistence
+  }
+}
 
 export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(true);
@@ -20,46 +38,62 @@ export default function App() {
     email: 'indra@smokecut.id',
   });
   const [activeTab, setActiveTab] = useState('dashboard');
-  const [backendStatus, setBackendStatus] = useState('ok');
-  const [analysisData, setAnalysisData] = useState(DEFAULT_ANALYSIS_DATA);
-  const [isWhatsAppModalOpen, setIsWhatsAppModalOpen] = useState(false);
+  const [backendStatus, setBackendStatus] = useState('checking');
+  const [history, setHistory] = useState(() => loadStored('smokecut.history', []));
+  const [current, setCurrent] = useState(() => loadStored('smokecut.history', [])[0] || null);
+  const [source, setSource] = useState(null);
+  const [fieldData, setFieldData] = useState(() => loadStored('smokecut.fieldData', {}));
+  const [modalDispatches, setModalDispatches] = useState(null);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+  // The backend overwrites overlay files when the same media is analysed again, so images
+  // are versioned and those of superseded results are not shown.
+  const analysisData = useMemo(() => {
+    if (!current) return null;
+    const outdated = history.some((h) => h.sourceId === current.sourceId && h.time > current.time);
+    return { ...current.analysis, _version: current.time, _outdated: outdated };
+  }, [current, history]);
+  const warningCount = analysisData?.firebreak_plan?.warnings?.length || 0;
 
-  // Check health and run baseline sample analysis on mount
   useEffect(() => {
-    checkHealth()
-      .then((res) => {
-        if (res.status === 'ok') {
-          setBackendStatus('ok');
-          // Fetch initial analysis for live dashboard data
-          return runAnalysis({ image_id: 'sample' });
-        } else {
-          setBackendStatus('offline');
-        }
-      })
-      .then((data) => {
-        if (data) setAnalysisData(data);
-      })
-      .catch(() => setBackendStatus('offline'));
+    const check = () => checkHealth().then((res) => setBackendStatus(res.status === 'ok' ? 'ok' : 'offline'));
+    check();
+    const timer = setInterval(check, 15000);
+    return () => clearInterval(timer);
   }, []);
+
+  useEffect(() => store('smokecut.history', history), [history]);
+  useEffect(() => store('smokecut.fieldData', fieldData), [fieldData]);
+
+  const handleAnalysisCompleted = (analysis, name) => {
+    const entry = { time: Date.now(), name, sourceId: analysis.image_id, analysis };
+    setCurrent(entry);
+    setHistory((items) => [entry, ...items].slice(0, MAX_HISTORY));
+    setBackendStatus('ok');
+  };
+
+  const openHistoryItem = (item) => {
+    setCurrent(item);
+    setSource({ id: item.sourceId === 'sample_drone_fire' ? 'sample_video' : item.sourceId, name: item.name });
+    setActiveTab('analysis');
+  };
 
   const tabMetadata = {
     dashboard: {
       title: 'Dashboard Monitoring',
-      subtitle: 'Pantau kondisi hutan secara real-time',
+      subtitle: 'Hasil analisis citra drone terakhir',
     },
     analysis: {
       title: 'Analisis Citra Drone',
-      subtitle: 'Dapatkan hasil analisis lengkap dalam hitungan detik',
+      subtitle: 'Unggah foto/video untuk mendeteksi api dan merencanakan sekat bakar',
     },
     risk_map: {
       title: 'Peta Risiko Kebakaran',
-      subtitle: 'Pantau sebaran risiko di seluruh wilayah',
+      subtitle: 'Sebaran semak kering, api, dan sekat pada citra terakhir',
     },
     firebreak: {
       title: 'Perencanaan Sekat Bakar',
-      subtitle: 'Rute jalur potong terpendek dan aman untuk pencegahan rambatan api',
+      subtitle: 'Jalur sekat di depan garis api sesuai standar tertulis',
     },
     notifications: {
       title: 'Notifikasi & Peringatan',
@@ -95,7 +129,8 @@ export default function App() {
         activeTab={activeTab}
         setActiveTab={setActiveTab}
         onLogout={() => setIsLoggedIn(false)}
-        unreadNotifications={3}
+        warningCount={warningCount}
+        user={currentUser}
         isCollapsed={isSidebarCollapsed}
         setIsCollapsed={setIsSidebarCollapsed}
         isMobileOpen={isMobileSidebarOpen}
@@ -111,6 +146,7 @@ export default function App() {
           onOpenNotifications={() => setActiveTab('notifications')}
           onToggleMobileSidebar={() => setIsMobileSidebarOpen(!isMobileSidebarOpen)}
           backendStatus={backendStatus}
+          hasAlert={warningCount > 0}
         />
 
         {/* Dynamic Scrollable Content */}
@@ -119,53 +155,50 @@ export default function App() {
             {activeTab === 'dashboard' && (
               <DashboardView
                 analysisData={analysisData}
+                sourceName={current?.name}
                 onNavigateToAnalysis={() => setActiveTab('analysis')}
-                onNavigateToRiskMap={() => setActiveTab('risk_map')}
               />
             )}
 
-            {activeTab === 'analysis' && (
+            {/* Kept mounted so a running upload/analysis survives tab changes */}
+            <div className={activeTab === 'analysis' ? '' : 'hidden'}>
               <AnalysisView
-                initialData={analysisData}
-                onAnalysisCompleted={(res) => setAnalysisData(res)}
-                onNavigateToHistory={() => setActiveTab('history')}
+                analysis={analysisData}
+                fieldData={fieldData}
+                setFieldData={setFieldData}
+                source={source}
+                setSource={setSource}
+                onAnalysisCompleted={handleAnalysisCompleted}
               />
-            )}
+            </div>
 
-            {activeTab === 'risk_map' && (
-              <RiskMapView analysisData={analysisData} />
-            )}
+            {activeTab === 'risk_map' && <RiskMapView analysisData={analysisData} />}
 
             {activeTab === 'firebreak' && (
-              <FirebreakView
-                analysisData={analysisData}
-                onNavigateToAnalysis={() => setActiveTab('analysis')}
-              />
+              <FirebreakView analysisData={analysisData} onNavigateToAnalysis={() => setActiveTab('analysis')} />
             )}
 
             {activeTab === 'notifications' && (
-              <NotificationsView
-                onOpenDispatchModal={() => setIsWhatsAppModalOpen(true)}
-              />
+              <NotificationsView analysisData={analysisData} onOpenDispatchModal={setModalDispatches} />
             )}
 
-            {activeTab === 'history' && (
-              <HistoryView
-                onViewDetail={() => setActiveTab('analysis')}
+            {activeTab === 'history' && <HistoryView history={history} onViewDetail={openHistoryItem} />}
+
+            {activeTab === 'settings' && (
+              <SettingsView
+                fieldData={fieldData}
+                setFieldData={setFieldData}
+                backendStatus={backendStatus}
+                historyCount={history.length}
+                onClearHistory={() => setHistory([])}
               />
             )}
-
-            {activeTab === 'settings' && <SettingsView />}
           </div>
         </main>
       </div>
 
       {/* WhatsApp Dispatch Modal */}
-      <WhatsAppModal
-        isOpen={isWhatsAppModalOpen}
-        onClose={() => setIsWhatsAppModalOpen(false)}
-        currentAnalysis={analysisData}
-      />
+      {modalDispatches && <WhatsAppModal dispatches={modalDispatches} onClose={() => setModalDispatches(null)} />}
     </div>
   );
 }
