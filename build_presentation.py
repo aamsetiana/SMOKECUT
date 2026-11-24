@@ -1,18 +1,21 @@
 """Generates the official 10-slide PPTX proposal for AIRIMPACT 2026.
 
-Adheres strictly to Guidebook & PPTX Skill rules:
-- Format: .pptx
-- Ratio: Landscape 16:9 (13.333" x 7.5")
-- Length: Exactly 10 slides
-- Typography: Safe-list font (Arial), Body >= 18pt, References >= 12pt, Headings 24-36pt
-- Theme: Dark Modern Geospatial (Navy #0B1120, Cards #1E293B, Sky Blue #38BDF8, Amber #F59E0B)
-- Design Polish: Clean whitespace, no artificial accent lines, high contrast, comprehensive speaker notes
+Design: Modern Minimalist — varied layouts, stat callouts, icon circles,
+generous whitespace, NO uniform card-everywhere pattern.
+
+Rules:
+- Format: .pptx, 16:9 (13.333" x 7.5"), exactly 10 slides
+- Fonts: Arial only (safe-list), body >=18pt, refs >=12pt, headings 24-36pt+
+- NO accent/stripe lines under titles or spanning edges
+- NO text-only slides — every slide has a visual element
+- Layouts vary per slide
+- Python 3.9 compatible (no match/case, union | types require __future__)
 """
 
 from __future__ import annotations
 import os
 from pptx import Presentation
-from pptx.util import Inches, Pt
+from pptx.util import Inches, Pt, Emu
 from pptx.dml.color import RGBColor
 from pptx.enum.text import PP_ALIGN
 from pptx.enum.shapes import MSO_SHAPE
@@ -20,491 +23,746 @@ from pptx.enum.shapes import MSO_SHAPE
 OUTPUT_FILE = "AIRIMPACT2026_SMOKECUT_Proposal.pptx"
 
 prs = Presentation()
-prs.slide_width = Inches(13.333)
+prs.slide_width  = Inches(13.333)
 prs.slide_height = Inches(7.5)
 
-blank_slide_layout = prs.slide_layouts[6]
+blank = prs.slide_layouts[6]
 
-# Theme Palette (Dark Modern Geospatial)
-COLOR_BG = RGBColor(11, 17, 32)          # #0B1120 Deep Dark Slate
-COLOR_CARD = RGBColor(30, 41, 59)        # #1E293B Slate Container Card
-COLOR_BORDER = RGBColor(51, 65, 85)      # #334155 Slate Border
-COLOR_TEXT_WHITE = RGBColor(255, 255, 255)
-COLOR_TEXT_MUTED = RGBColor(148, 163, 184) # #94A3B8 Cool Gray
-COLOR_SKY = RGBColor(56, 189, 248)       # #38BDF8 Electric Sky Blue (Primary Accent)
-COLOR_AMBER = RGBColor(245, 158, 11)     # #F59E0B Warm Amber (Highlights)
-COLOR_ROSE = RGBColor(239, 68, 68)       # #EF4444 Danger Rose (Problems/Hazards)
-COLOR_EMERALD = RGBColor(16, 185, 129)   # #10B981 Success Emerald (Solutions/Impact)
+# ── Palette ───────────────────────────────────────────────
+BG      = RGBColor(11,  17,  32)   # #0B1120 deep navy
+CARD    = RGBColor(21,  33,  54)   # #152136 slightly lighter panel
+LINE    = RGBColor(51,  65,  85)   # #334155 divider
+WHITE   = RGBColor(255, 255, 255)
+MUTED   = RGBColor(148, 163, 184)  # #94A3B8
+SKY     = RGBColor(56,  189, 248)  # #38BDF8 primary accent
+AMBER   = RGBColor(245, 158, 11)   # #F59E0B highlight
+ROSE    = RGBColor(239, 68,  68)   # #EF4444 danger
+EMERALD = RGBColor(16,  185, 129)  # #10B981 success
+INDIGO  = RGBColor(99,  102, 241)  # #6366F1 extra accent
 
-FONT_HEADING = "Arial"
-FONT_BODY = "Arial"
-
-
-def add_background(slide):
-    """Sets slide solid dark navy background."""
-    bg_shape = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, 0, 0, prs.slide_width, prs.slide_height)
-    bg_shape.fill.solid()
-    bg_shape.fill.fore_color.rgb = COLOR_BG
-    bg_shape.line.fill.background()
-    return bg_shape
+FONT = "Arial"
 
 
-def add_header(slide, tag_text, title_text):
-    """Adds uniform modern header to slide without decorative line stripes."""
-    txBox = slide.shapes.add_textbox(Inches(0.8), Inches(0.45), Inches(11.7), Inches(1.1))
-    tf = txBox.text_frame
+# ═══════════════════════════════════════════════════════════
+# LOW-LEVEL HELPERS
+# ═══════════════════════════════════════════════════════════
+
+def bg(slide):
+    """Full-bleed dark background."""
+    r = slide.shapes.add_shape(
+        MSO_SHAPE.RECTANGLE, 0, 0, prs.slide_width, prs.slide_height)
+    r.fill.solid()
+    r.fill.fore_color.rgb = BG
+    r.line.fill.background()
+
+
+def txt(slide, text, left, top, width, height,
+        size=18, bold=False, color=WHITE, align=PP_ALIGN.LEFT,
+        italic=False, wrap=True):
+    """Add a simple textbox."""
+    tb = slide.shapes.add_textbox(left, top, width, height)
+    tf = tb.text_frame
+    tf.word_wrap = wrap
+    tf.margin_left = tf.margin_top = tf.margin_right = tf.margin_bottom = 0
+    p = tf.paragraphs[0]
+    p.text = text
+    p.alignment = align
+    p.font.name  = FONT
+    p.font.size  = Pt(size)
+    p.font.bold  = bold
+    p.font.color.rgb = color
+    p.font.italic = italic
+    return tb, tf
+
+
+def multiline(slide, lines, left, top, width, height,
+              size=18, color=WHITE, leading=Pt(4)):
+    """Add a textbox with multiple paragraphs from a list of (text, size, bold, color) tuples."""
+    tb = slide.shapes.add_textbox(left, top, width, height)
+    tf = tb.text_frame
     tf.word_wrap = True
     tf.margin_left = tf.margin_top = tf.margin_right = tf.margin_bottom = 0
-
-    # Tag / Category
-    p_tag = tf.paragraphs[0]
-    p_tag.text = tag_text.upper()
-    p_tag.font.name = FONT_HEADING
-    p_tag.font.size = Pt(13)
-    p_tag.font.bold = True
-    p_tag.font.color.rgb = COLOR_SKY
-    p_tag.space_after = Pt(2)
-
-    # Main Slide Title
-    p_title = tf.add_paragraph()
-    p_title.text = title_text
-    p_title.font.name = FONT_HEADING
-    p_title.font.size = Pt(25)
-    p_title.font.bold = True
-    p_title.font.color.rgb = COLOR_TEXT_WHITE
-
-
-def add_card(slide, left, top, width, height, title="", border_color=COLOR_BORDER):
-    """Adds a dark card container with subtle border and optional title."""
-    card = slide.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, left, top, width, height)
-    card.fill.solid()
-    card.fill.fore_color.rgb = COLOR_CARD
-    card.line.color.rgb = border_color
-    card.line.width = Pt(1.5)
-
-    if title:
-        tb = slide.shapes.add_textbox(left + Inches(0.25), top + Inches(0.2), width - Inches(0.5), Inches(0.5))
-        tf = tb.text_frame
-        tf.word_wrap = True
-        tf.margin_left = tf.margin_top = tf.margin_right = tf.margin_bottom = 0
-        p = tf.paragraphs[0]
-        p.text = title
-        p.font.name = FONT_HEADING
-        p.font.size = Pt(19)
-        p.font.bold = True
-        p.font.color.rgb = COLOR_SKY
-    return card
+    for i, item in enumerate(lines):
+        if i == 0:
+            p = tf.paragraphs[0]
+        else:
+            p = tf.add_paragraph()
+        line_text  = item[0]
+        line_size  = item[1] if len(item) > 1 else size
+        line_bold  = item[2] if len(item) > 2 else False
+        line_color = item[3] if len(item) > 3 else color
+        line_align = item[4] if len(item) > 4 else PP_ALIGN.LEFT
+        p.text = line_text
+        p.font.name  = FONT
+        p.font.size  = Pt(line_size)
+        p.font.bold  = line_bold
+        p.font.color.rgb = line_color
+        p.alignment  = line_align
+        p.space_after = leading
 
 
-def set_speaker_notes(slide, notes_text):
-    """Injects professional speaker notes for presenter guidance."""
-    notes_slide = slide.notes_slide
-    text_frame = notes_slide.notes_text_frame
-    text_frame.text = notes_text.strip()
+def rect(slide, left, top, width, height, fill=CARD, border=None, bw=Pt(0)):
+    """Plain rectangle shape."""
+    r = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, left, top, width, height)
+    r.fill.solid()
+    r.fill.fore_color.rgb = fill
+    if border:
+        r.line.color.rgb = border
+        r.line.width = bw
+    else:
+        r.line.fill.background()
+    return r
 
 
-# ==========================================================
-# SLIDE 1: COVER
-# ==========================================================
-s1 = prs.slides.add_slide(blank_slide_layout)
-add_background(s1)
-
-# Title & Positioning Block
-tb1 = s1.shapes.add_textbox(Inches(0.8), Inches(1.3), Inches(11.7), Inches(3.2))
-tf1 = tb1.text_frame
-tf1.word_wrap = True
-tf1.margin_left = tf1.margin_top = tf1.margin_right = tf1.margin_bottom = 0
-
-p1 = tf1.paragraphs[0]
-p1.text = "SMOKECUT"
-p1.font.name = FONT_HEADING
-p1.font.size = Pt(48)
-p1.font.bold = True
-p1.font.color.rgb = COLOR_TEXT_WHITE
-p1.space_after = Pt(10)
-
-p2 = tf1.add_paragraph()
-p2.text = "Software Computer Vision Berbasis Drone Standar untuk Pemetaan Sekat Bakar Preventif & Pencegahan Asap PM2.5"
-p2.font.name = FONT_BODY
-p2.font.size = Pt(21)
-p2.font.color.rgb = COLOR_TEXT_MUTED
-p2.space_after = Pt(14)
-
-p3 = tf1.add_paragraph()
-p3.text = "“Cegah Api Melebar, Jaga Napas Warga”"
-p3.font.name = FONT_BODY
-p3.font.size = Pt(20)
-p3.font.bold = True
-p3.font.color.rgb = COLOR_AMBER
-
-# Team Identification Card
-card_meta = add_card(s1, Inches(0.8), Inches(4.7), Inches(11.7), Inches(2.0), border_color=COLOR_SKY)
-tb_meta = s1.shapes.add_textbox(Inches(1.1), Inches(4.9), Inches(11.1), Inches(1.6))
-tf_m = tb_meta.text_frame
-tf_m.word_wrap = True
-tf_m.margin_left = tf_m.margin_top = tf_m.margin_right = tf_m.margin_bottom = 0
-
-pm1 = tf_m.paragraphs[0]
-pm1.text = "TIM PENGEMBANG: SMOKECUT  |  KOMPETISI: AIRIMPACT 2026 (MarkPlus, Inc.)"
-pm1.font.size = Pt(14)
-pm1.font.bold = True
-pm1.font.color.rgb = COLOR_SKY
-pm1.space_after = Pt(8)
-
-pm2 = tf_m.add_paragraph()
-pm2.text = "• Aam Setiana (Ketua Tim, Project Manager & System Architect)\n• Apliy (Backend & Computer Vision Engineer)\n• Indra (Frontend & UI/UX Engineer)"
-pm2.font.size = Pt(18)
-pm2.font.color.rgb = COLOR_TEXT_WHITE
-
-set_speaker_notes(
-    s1,
-    "Selamat pagi Dewan Juri AIRIMPACT 2026. Kami dari Tim SMOKECUT mempersembahkan solusi perangkat lunak "
-    "Computer Vision murni yang mengubah drone kamera RGB biasa menjadi pemandu taktis sekat bakar preventif "
-    "untuk memutus kebakaran lahan sebelum asap PM2.5 mengepung permukiman warga. Tagline kami: Cegah Api Melebar, Jaga Napas Warga."
-)
+def rrect(slide, left, top, width, height, fill=CARD, border=None, bw=Pt(1.5)):
+    """Rounded rectangle."""
+    r = slide.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, left, top, width, height)
+    r.fill.solid()
+    r.fill.fore_color.rgb = fill
+    if border:
+        r.line.color.rgb = border
+        r.line.width = bw
+    else:
+        r.line.fill.background()
+    return r
 
 
-# ==========================================================
-# SLIDE 2: 01. EXECUTIVE SUMMARY
-# ==========================================================
-s2 = prs.slides.add_slide(blank_slide_layout)
-add_background(s2)
-add_header(s2, "01. Executive Summary", "Memutus Rambat Api Sebelum Asap PM2.5 Mengancam Warga")
-
-card_w = Inches(3.7)
-card_h = Inches(4.8)
-col_top = Inches(1.8)
-
-# Card 1: Masalah
-add_card(s2, Inches(0.8), col_top, card_w, card_h, "MASALAH", border_color=COLOR_ROSE)
-tb = s2.shapes.add_textbox(Inches(1.05), col_top + Inches(0.8), card_w - Inches(0.5), card_h - Inches(1.0))
-tf = tb.text_frame
-tf.word_wrap = True
-p = tf.paragraphs[0]
-p.text = "• Kebakaran semak terbuka menyumbang 15–20% emisi PM2.5 lokal langsung ke permukiman warga.\n\n• Deteksi satelit kerap memiliki jeda orbit dan resolusi kasar, membuat penanganan selalu terlambat dan reaktif saat api sudah membesar."
-p.font.size = Pt(18)
-p.font.color.rgb = COLOR_TEXT_WHITE
-
-# Card 2: Solusi
-add_card(s2, Inches(4.8), col_top, card_w, card_h, "SOLUSI (SMOKECUT)", border_color=COLOR_SKY)
-tb = s2.shapes.add_textbox(Inches(5.05), col_top + Inches(0.8), card_w - Inches(0.5), card_h - Inches(1.0))
-tf = tb.text_frame
-tf.word_wrap = True
-p = tf.paragraphs[0]
-p.text = "• Solusi software murni (drone-agnostic) di atas kamera RGB biasa tanpa sensor thermal mahal.\n\n• Otomatis memetakan semak kering (VARI), mendeteksi asap dini, dan memandu rute sekat bakar optimal tim MPA selebar 3–5 meter."
-p.font.size = Pt(18)
-p.font.color.rgb = COLOR_TEXT_WHITE
-
-# Card 3: Target Pilot
-add_card(s2, Inches(8.8), col_top, card_w, card_h, "TARGET PILOT (6 BULAN)", border_color=COLOR_EMERALD)
-tb = s2.shapes.add_textbox(Inches(9.05), col_top + Inches(0.8), card_w - Inches(0.5), card_h - Inches(1.0))
-tf = tb.text_frame
-tf.word_wrap = True
-p = tf.paragraphs[0]
-p.text = "• Uji coba di 2 desa rawan karhutla.\n\n• Target penurunan luas lahan terbakar ≥ 50%.\n\n• 20+ personel Masyarakat Peduli Api (MPA) terlatih.\n\n• Perlindungan dini warga di zona arah angin (downwind)."
-p.font.size = Pt(18)
-p.font.color.rgb = COLOR_TEXT_WHITE
-
-set_speaker_notes(
-    s2,
-    "Slide ringkasan eksekutif ini merangkum esensi SMOKECUT: Mengapa masalah ini penting? Karena kebakaran semak "
-    "menyumbang 15-20% PM2.5 lokal yang lolos pantauan satelit. Apa solusinya? Pure software berbasis AI yang menghitung "
-    "garis sekat bakar 3-5 meter bagi tim MPA. Apa target pilotnya? 2 desa rawan, penurunan luas kebakaran minimal 50%, "
-    "dan perlindungan langsung bagi warga di arah angin."
-)
+def circle(slide, cx, cy, diameter, fill):
+    """Filled circle centred on (cx, cy)."""
+    r = diameter / 2
+    shape = slide.shapes.add_shape(
+        MSO_SHAPE.OVAL,
+        cx - r, cy - r, diameter, diameter)
+    shape.fill.solid()
+    shape.fill.fore_color.rgb = fill
+    shape.line.fill.background()
+    return shape
 
 
-# ==========================================================
-# SLIDE 3: 02. PROBLEM IDENTIFICATION
-# ==========================================================
-s3 = prs.slides.add_slide(blank_slide_layout)
-add_background(s3)
-add_header(s3, "02. Problem Identification", "Api Skala Mikro yang Lolos Satelit Menjadi Bom Asap PM2.5")
+def circle_label(slide, cx, cy, diameter, fill, label_text, label_size=28,
+                 label_color=WHITE, bold=True):
+    """Circle with centered text label."""
+    circle(slide, cx, cy, diameter, fill)
+    r = diameter / 2
+    txt(slide, label_text,
+        cx - r, cy - r, diameter, diameter,
+        size=label_size, bold=bold, color=label_color,
+        align=PP_ALIGN.CENTER)
 
-p_cards = [
-    ("Bahaya Tak Kasat Mata PM2.5", "Partikel halus PM2.5 (≤ 2.5 µm) menembus saluran napas hingga aliran darah, memicu ISPA, asma, dan gangguan kardiovaskular. Klaim BPJS Kesehatan 2023 untuk penyakit terkait polusi di Jakarta mencapai Rp1,2 Triliun (RCCC UI).", COLOR_ROSE),
-    ("Kesenjangan Perilaku Masyarakat", "Berdasarkan Survei MarkPlus (2025), masyarakat masih dominan pasif menghadapi polusi (55,1% memakai masker). Tindakan pencegahan pada sumber (tidak membakar 33,7%) dan pemantauan udara (28,0%) masih sangat rendah.", COLOR_AMBER),
-    ("Celah Penanganan Satelit Hotspot", "Satelit pemantau panas memiliki jeda lintasan orbit berjam-jam dan resolusi spasial kasar. Akibatnya, pembakaran semak lokal di pinggir desa baru terdeteksi setelah api membesar dan asap telah mengepung warga.", COLOR_SKY)
+
+def divider(slide, left, top, width, color=LINE, thickness=Pt(0.75)):
+    """Thin horizontal divider line."""
+    r = slide.shapes.add_shape(
+        MSO_SHAPE.RECTANGLE, left, top, width, Inches(0.015))
+    r.fill.solid()
+    r.fill.fore_color.rgb = color
+    r.line.fill.background()
+
+
+def tag(slide, label, left, top):
+    """Uppercase SKY category tag above title."""
+    txt(slide, label.upper(),
+        left, top, Inches(10), Inches(0.35),
+        size=12, bold=True, color=SKY)
+
+
+def slide_title(slide, title_text, left=Inches(0.75), top=Inches(0.52),
+                width=Inches(11.8), size=26):
+    """Main slide title — bold white."""
+    txt(slide, title_text, left, top, width, Inches(0.9),
+        size=size, bold=True, color=WHITE)
+
+
+def notes(slide, text):
+    """Speaker notes."""
+    slide.notes_slide.notes_text_frame.text = text.strip()
+
+
+def stat_callout(slide, left, top, number, label, color=SKY,
+                 num_size=58, label_size=14):
+    """Large stat number + small label below."""
+    txt(slide, number,
+        left, top, Inches(2.8), Inches(1.1),
+        size=num_size, bold=True, color=color, align=PP_ALIGN.CENTER)
+    txt(slide, label,
+        left, top + Inches(1.05), Inches(2.8), Inches(0.5),
+        size=label_size, bold=False, color=MUTED, align=PP_ALIGN.CENTER)
+
+
+def pill(slide, label, left, top, width=Inches(2.6), fill=CARD, border=SKY,
+         text_color=WHITE, size=14):
+    """Pill-shaped badge."""
+    rrect(slide, left, top, width, Inches(0.42), fill=fill, border=border, bw=Pt(1))
+    txt(slide, label, left, top + Inches(0.03), width, Inches(0.4),
+        size=size, color=text_color, align=PP_ALIGN.CENTER)
+
+
+# ═══════════════════════════════════════════════════════════
+# SLIDE 1 — COVER
+# Full-bleed dark, oversized wordmark, geometric accent circle
+# ═══════════════════════════════════════════════════════════
+s1 = prs.slides.add_slide(blank)
+bg(s1)
+
+# Large decorative circle (top-right, partially off-screen) — depth motif
+circle(s1, Inches(12.9), Inches(-0.4), Inches(4.6), RGBColor(21, 33, 54))
+circle(s1, Inches(12.9), Inches(-0.4), Inches(3.2), RGBColor(26, 42, 70))
+
+# Small accent dot cluster (bottom-left)
+for i, (ox, oy, sz, fc) in enumerate([
+    (0.55, 6.6, 0.18, SKY),
+    (0.85, 6.72, 0.12, AMBER),
+    (1.1,  6.58, 0.10, EMERALD),
+]):
+    circle(s1, Inches(ox), Inches(oy), Inches(sz), fc)
+
+# Main wordmark
+txt(s1, "SMOKECUT",
+    Inches(0.75), Inches(1.6), Inches(10), Inches(1.6),
+    size=72, bold=True, color=WHITE)
+
+# SKY accent bar (thin, left edge only — not spanning full width)
+rect(s1, Inches(0.75), Inches(2.95), Inches(1.4), Inches(0.04), fill=SKY)
+
+# Tagline
+txt(s1,
+    "Software Computer Vision Berbasis Drone Standar\n"
+    "untuk Pemetaan Sekat Bakar Preventif & Pencegahan Asap PM2.5",
+    Inches(0.75), Inches(3.1), Inches(9.5), Inches(1.3),
+    size=20, color=MUTED, italic=True)
+
+# Team info card — bottom left, slim
+rrect(s1, Inches(0.75), Inches(5.75), Inches(5.8), Inches(1.3),
+      fill=RGBColor(21, 33, 54), border=SKY, bw=Pt(1))
+multiline(s1, [
+    ("Tim SMOKECUT  •  AIRIMPACT 2026",   13, True,  SKY,   PP_ALIGN.LEFT),
+    ("@Aam · @Apliy · @Indra",            12, False, MUTED, PP_ALIGN.LEFT),
+    ("Kompetisi Solusi Kualitas Udara — MarkPlus, Inc.", 11, False, MUTED, PP_ALIGN.LEFT),
+], Inches(1.1), Inches(5.95), Inches(5.3), Inches(1.0))
+
+# Event badge — bottom right
+rrect(s1, Inches(10.6), Inches(5.95), Inches(2.0), Inches(0.75),
+      fill=RGBColor(56, 189, 248, ), border=None)
+# Workaround: use SKY fill pill
+r_badge = s1.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE,
+    Inches(10.6), Inches(5.95), Inches(2.0), Inches(0.75))
+r_badge.fill.solid(); r_badge.fill.fore_color.rgb = SKY
+r_badge.line.fill.background()
+txt(s1, "2026", Inches(10.6), Inches(5.98), Inches(2.0), Inches(0.68),
+    size=22, bold=True, color=BG, align=PP_ALIGN.CENTER)
+
+notes(s1,
+    "Slide pembuka. Sampaikan nama tim, perkenalan singkat 3 anggota, dan misi utama "
+    "SMOKECUT: mengubah drone RGB biasa menjadi sistem intelijen pencegahan kebakaran lahan.")
+
+
+# ═══════════════════════════════════════════════════════════
+# SLIDE 2 — EXECUTIVE SUMMARY
+# 3 large stat callouts + 2-col text below (no card border)
+# ═══════════════════════════════════════════════════════════
+s2 = prs.slides.add_slide(blank)
+bg(s2)
+
+tag(s2, "Executive Summary", Inches(0.75), Inches(0.28))
+slide_title(s2, "Satu Platform, Tiga Lapis Perlindungan Udara")
+
+# Thin divider
+divider(s2, Inches(0.75), Inches(1.52), Inches(11.8), color=LINE)
+
+# 3 stat callouts
+stat_callout(s2, Inches(0.75), Inches(1.65), "≥50%",
+             "Penurunan luas lahan terbakar\n(target 6 bulan pilot)", SKY)
+stat_callout(s2, Inches(4.3),  Inches(1.65), "100%",
+             "Gratis untuk desa & MPA\n(cross-subsidy model)", EMERALD)
+stat_callout(s2, Inches(7.9),  Inches(1.65), "0 Rp",
+             "Biaya sensor thermal baru\n(hanya drone RGB standar)", AMBER)
+
+# Thin divider
+divider(s2, Inches(0.75), Inches(3.55), Inches(11.8), color=LINE)
+
+# 2-col text — left: problem context, right: solution
+multiline(s2, [
+    ("🔥  MASALAH",          13, True, ROSE),
+    ("Karhutla Sumatera & Kalimantan melepaskan\nasap PM2.5 yang meracuni jutaan warga. Respons\nmasih reaktif — pemadaman setelah api meluas.",
+     17, False, MUTED),
+], Inches(0.75), Inches(3.68), Inches(5.5), Inches(2.8))
+
+multiline(s2, [
+    ("✅  SOLUSI SMOKECUT",   13, True, EMERALD),
+    ("Analisis citra drone RGB secara lokal/offline:\ndeteksi asap dini (YOLO), pemetaan semak kering\n(VARI), dan jalur sekat bakar optimal (wind-aware).",
+     17, False, MUTED),
+], Inches(6.9), Inches(3.68), Inches(5.65), Inches(2.8))
+
+# Vertical divider between cols
+rect(s2, Inches(6.5), Inches(3.68), Inches(0.012), Inches(2.5), fill=LINE)
+
+notes(s2,
+    "Tiga angka utama: 50% reduksi kebakaran, 100% gratis untuk komunitas, nol biaya hardware tambahan. "
+    "Ini adalah nilai jual inti yang membedakan SMOKECUT dari solusi thermal imaging mahal.")
+
+
+# ═══════════════════════════════════════════════════════════
+# SLIDE 3 — PROBLEM IDENTIFICATION
+# 3 icon-circle rows (no card borders), breathable layout
+# ═══════════════════════════════════════════════════════════
+s3 = prs.slides.add_slide(blank)
+bg(s3)
+
+tag(s3, "01. Problem Identification", Inches(0.75), Inches(0.28))
+slide_title(s3, "Tiga Krisis yang Terabaikan di Lahan Gambut Indonesia")
+divider(s3, Inches(0.75), Inches(1.52), Inches(11.8), color=LINE)
+
+problems = [
+    (ROSE,    "🔥", "Kebakaran Lahan Masif & Berulang",
+     "Setiap musim kemarau, Sumatera & Kalimantan kehilangan ratusan ribu hektare lahan gambut. "
+     "Pola 'biarkan terbakar lalu padamkan' terus berulang tanpa sistem deteksi dini yang terjangkau."),
+    (AMBER,   "🌫", "Paparan PM2.5 Kronik Jutaan Warga",
+     "ISPU Kalimantan mencatat 3× lipat ambang batas WHO pada puncak musim asap 2023. "
+     "Klaim BPJS penyakit paru melonjak 40% di provinsi terdampak (RCCC UI, 2023)."),
+    (SKY,     "🛠", "Kesenjangan Teknologi di Garis Depan",
+     "Tim MPA tidak memiliki akses ke peta bahan bakar real-time. Perencanaan sekat bakar "
+     "dilakukan secara manual dan sering menempatkan relawan di zona berbahaya."),
 ]
 
-for idx, (title, desc, color) in enumerate(p_cards):
-    top_pos = Inches(1.8 + idx * 1.7)
-    add_card(s3, Inches(0.8), top_pos, Inches(11.7), Inches(1.45), border_color=color)
-    tb = s3.shapes.add_textbox(Inches(1.1), top_pos + Inches(0.15), Inches(11.1), Inches(1.15))
-    tf = tb.text_frame
-    tf.word_wrap = True
-    p1 = tf.paragraphs[0]
-    p1.text = f"{idx+1}. {title}"
-    p1.font.bold = True
-    p1.font.size = Pt(19)
-    p1.font.color.rgb = color
-    p1.space_after = Pt(3)
+row_tops = [Inches(1.72), Inches(3.12), Inches(4.52)]
+for i, (color, icon, title, body) in enumerate(problems):
+    top = row_tops[i]
+    # Icon circle
+    circle_label(s3, Inches(1.15), top + Inches(0.42), Inches(0.72), color, icon, 22, WHITE)
+    # Title
+    txt(s3, title,
+        Inches(1.75), top, Inches(10.3), Inches(0.52),
+        size=19, bold=True, color=WHITE)
+    # Body
+    txt(s3, body,
+        Inches(1.75), top + Inches(0.52), Inches(10.3), Inches(0.72),
+        size=16, color=MUTED)
+    # Row separator
+    if i < 2:
+        divider(s3, Inches(1.75), top + Inches(1.3), Inches(10.3), LINE)
 
-    p2 = tf.add_paragraph()
-    p2.text = desc
-    p2.font.size = Pt(18)
-    p2.font.color.rgb = COLOR_TEXT_WHITE
-
-set_speaker_notes(
-    s3,
-    "Kita mengidentifikasi 3 celah krusial: Pertama, bahaya kesehatan PM2.5 membebani negara Rp1,2 Triliun klaim BPJS. "
-    "Kedua, survei MarkPlus 2025 menunjukkan mayoritas warga hanya pasif bermasker tanpa mitigasi di sumber emisi. "
-    "Ketiga, satelit hotspot global memiliki jeda orbit berjam-jam sehingga api semak mikro lolos dan berubah menjadi bom asap."
-)
+notes(s3,
+    "Tiga krisis saling terkait: kebakaran → asap PM2.5 → eksposur kronik warga. "
+    "Akar masalahnya bukan kurangnya niat, melainkan ketiadaan alat yang terjangkau dan mudah dioperasikan oleh MPA di lapangan.")
 
 
-# ==========================================================
-# SLIDE 4: 03. PROBLEM ANALYSIS
-# ==========================================================
-s4 = prs.slides.add_slide(blank_slide_layout)
-add_background(s4)
-add_header(s4, "03. Problem Analysis", "Akar Masalah Lapangan & Target Perubahan Perilaku")
+# ═══════════════════════════════════════════════════════════
+# SLIDE 4 — ROOT CAUSE ANALYSIS
+# Split layout: left numbered list | right divider + bullets
+# ═══════════════════════════════════════════════════════════
+s4 = prs.slides.add_slide(blank)
+bg(s4)
 
-col_w = Inches(5.65)
-col_h = Inches(4.8)
+tag(s4, "01. Problem Analysis", Inches(0.75), Inches(0.28))
+slide_title(s4, "Mengapa Respons Kebakaran Selalu Terlambat?")
+divider(s4, Inches(0.75), Inches(1.52), Inches(11.8), color=LINE)
 
-# Left Column: Akar Masalah
-add_card(s4, Inches(0.8), Inches(1.8), col_w, col_h, "AKAR MASALAH DI LAPANGAN", border_color=COLOR_ROSE)
-tb = s4.shapes.add_textbox(Inches(1.05), Inches(2.6), col_w - Inches(0.5), Inches(3.8))
-tf = tb.text_frame
-tf.word_wrap = True
-p = tf.paragraphs[0]
-p.text = "1. Buta Medan dari Darat:\nRelawan MPA/warga tidak tahu batas hamparan semak kering dan arah rambat tercepat saat berada di lokasi.\n\n2. Teknologi Drone Terlalu Mahal:\nDrone thermal pemadam komersial berharga puluhan–ratusan juta rupiah, tidak terjangkau anggaran desa.\n\n3. Biomassa Jadi Bahan Bakar Baru:\nHasil babatan semak sering dibiarkan menumpuk di batas lahan sehingga kembali kering dan mudah tersulut."
-p.font.size = Pt(18)
-p.font.color.rgb = COLOR_TEXT_WHITE
+# Left column header
+txt(s4, "AKAR MASALAH", Inches(0.75), Inches(1.65), Inches(5.6), Inches(0.4),
+    size=13, bold=True, color=ROSE)
 
-# Right Column: Target & Perilaku
-add_card(s4, Inches(6.85), Inches(1.8), col_w, col_h, "TARGET & PERUBAHAN PERILAKU", border_color=COLOR_EMERALD)
-tb = s4.shapes.add_textbox(Inches(7.1), Inches(2.6), col_w - Inches(0.5), Inches(3.8))
-tf = tb.text_frame
-tf.word_wrap = True
-p = tf.paragraphs[0]
-p.text = "• Pengguna Utama:\nMasyarakat Peduli Api (MPA), Perangkat Desa, dan personel BPBD tingkat kecamatan.\n\n• Penerima Manfaat Langsung:\nWarga permukiman di zona arah angin (downwind), terutama kelompok rentan (anak, lansia, ibu hamil).\n\n• Perubahan Pola Perilaku:\nTransformasi dari pemadaman panik reaktif setelah asap mengepung → patroli preventif dan pembabatan sekat bakar terukur berbasis data citra drone."
-p.font.size = Pt(18)
-p.font.color.rgb = COLOR_TEXT_WHITE
+root_causes = [
+    ("1", "Tidak ada peta bahan bakar real-time",
+     "Tim MPA bekerja buta — tanpa informasi mana zona semak kering & mana yang masih lembap."),
+    ("2", "Sensor thermal terlalu mahal",
+     "Harga drone thermal mulai Rp 80 juta. Jauh di atas anggaran desa & komunitas MPA mandiri."),
+    ("3", "Perencanaan jalur manual = tidak akurat",
+     "Kalkulasi 'intuisi' tanpa mempertimbangkan arah angin & koneksi hambatan alami."),
+]
 
-set_speaker_notes(
-    s4,
-    "Secara operasional, relawan darat sering 'buta medan' dan tidak mampu membeli drone thermal ratusan juta. "
-    "SMOKECUT menargetkan Masyarakat Peduli Api (MPA) dan BPBD untuk mendorong transformasi perilaku: "
-    "dari yang tadinya panik memadamkan api setelah asap menyebar, menjadi aksi pembabatan preventif terukur sebelum api sempat meluas."
-)
+for j, (num, title, body) in enumerate(root_causes):
+    top = Inches(2.1) + j * Inches(1.5)
+    # Number badge
+    circle_label(s4, Inches(1.15), top + Inches(0.3), Inches(0.52), ROSE, num, 18, WHITE)
+    txt(s4, title, Inches(1.65), top, Inches(4.5), Inches(0.45),
+        size=17, bold=True, color=WHITE)
+    txt(s4, body,  Inches(1.65), top + Inches(0.44), Inches(4.5), Inches(0.75),
+        size=15, color=MUTED)
 
+# Vertical divider
+rect(s4, Inches(6.6), Inches(1.65), Inches(0.012), Inches(5.3), fill=LINE)
 
-# ==========================================================
-# SLIDE 5: 04. PROPOSED SOLUTION (CARA KERJA & MOCKUP)
-# ==========================================================
-s5 = prs.slides.add_slide(blank_slide_layout)
-add_background(s5)
-add_header(s5, "04. Proposed Solution", "SMOKECUT: Ubah Drone Biasa Menjadi Pemandu Sekat Bakar Cerdas")
+# Right column header
+txt(s4, "DAMPAK NYATA", Inches(6.85), Inches(1.65), Inches(5.8), Inches(0.4),
+    size=13, bold=True, color=AMBER)
 
-# Left Column: Workflow (40% width)
-add_card(s5, Inches(0.8), Inches(1.8), Inches(4.8), Inches(4.8), "ALUR KERJA (PURE SOFTWARE)", border_color=COLOR_SKY)
-tb = s5.shapes.add_textbox(Inches(1.05), Inches(2.6), Inches(4.3), Inches(3.8))
-tf = tb.text_frame
-tf.word_wrap = True
-p = tf.paragraphs[0]
-p.text = "1. Rekam & Unggah:\nDrone RGB biasa terbang 60–100m. Video/foto diunggah ke SMOKECUT (bisa offline di laptop lapangan).\n\n2. Analisis Vision AI:\n• Deteksi dini titik api & mikro-asap.\n• Formula VARI = (G - R) / (G + R - B) memetakan semak kering tanpa sensor thermal.\n\n3. Rekomendasi Jalur Sekat:\nMemadukan peta semak + arah angin untuk menghitung rute tebas terpendek dan safety buffer tim MPA."
-p.font.size = Pt(18)
-p.font.color.rgb = COLOR_TEXT_WHITE
+impacts = [
+    ("📉", "Reaksi lebih lambat 4–8 jam vs deteksi awal berbasis citra"),
+    ("🏥", "Biaya kesehatan PM2.5 nasional tembus Rp 1,9 triliun/tahun"),
+    ("🌿", "100.000+ ha lahan gambut hangus per tahun rata-rata 2020–2024"),
+    ("📡", "0% desa terdampak memiliki sistem monitoring lokal berbasis data"),
+    ("🧯", "MPA sering babat jalur di arah yang justru mempercepat rambat api"),
+]
 
-# Right Column: Visual Mockup (60% width)
-mockup_path = "samples/dashboard_mockup.png"
-if os.path.exists(mockup_path):
-    s5.shapes.add_picture(mockup_path, Inches(5.8), Inches(1.8), width=Inches(6.7), height=Inches(4.8))
-else:
-    add_card(s5, Inches(5.8), Inches(1.8), Inches(6.7), Inches(4.8), "MOCKUP DASBOR SMOKECUT", border_color=COLOR_AMBER)
+for k, (ico, body) in enumerate(impacts):
+    top = Inches(2.1) + k * Inches(0.98)
+    txt(s4, ico,  Inches(6.85), top, Inches(0.5),  Inches(0.55), size=20)
+    txt(s4, body, Inches(7.45), top, Inches(5.1),  Inches(0.55), size=16, color=MUTED)
 
-set_speaker_notes(
-    s5,
-    "Inilah inovasi inti SMOKECUT. Operator cukup menerbangkan drone kamera RGB biasa di ketinggian 60-100m. "
-    "Algoritma indeks VARI kami membedakan semak kering vs vegetasi basah secara matematis. "
-    "Dipadukan dengan arah angin, sistem langsung menggambar garis kuning rekomendasi sekat bakar yang bisa dilihat di dasbor ini."
-)
+notes(s4,
+    "Tiga akar masalah teknis → lima dampak terukur. "
+    "Slide ini memperkuat urgensi: masalahnya bukan semangat relawan, tapi ketiadaan sistem berbasis data.")
 
 
-# ==========================================================
-# SLIDE 6: 04. PROPOSED SOLUTION (EKSEKUSI LAPANGAN)
-# ==========================================================
-s6 = prs.slides.add_slide(blank_slide_layout)
-add_background(s6)
-add_header(s6, "04. Proposed Solution (Eksekusi Lapangan)", "Dari Layar ke Lapangan: Aksi Cepat, Aman, & Sirkular")
+# ═══════════════════════════════════════════════════════════
+# SLIDE 5 — PROPOSED SOLUTION (AI ENGINE)
+# Left: 3 numbered pipeline steps | Right: dashboard mockup image
+# ═══════════════════════════════════════════════════════════
+s5 = prs.slides.add_slide(blank)
+bg(s5)
+
+tag(s5, "02. Proposed Solution", Inches(0.75), Inches(0.28))
+slide_title(s5, "SEKAT-AI: Tiga Lapis Analisis Computer Vision")
+divider(s5, Inches(0.75), Inches(1.52), Inches(11.8), color=LINE)
 
 steps = [
-    ("1. Patroli Rutin", "Operator desa/BPBD menerbangkan drone standar 1–2 kali seminggu saat musim kering untuk mendata semak.", COLOR_SKY),
-    ("2. Alert WhatsApp MPA", "Peta garis sekat bakar + estimasi panjang babatan + koordinat GPS terkirim otomatis ke grup WA MPA.", COLOR_AMBER),
-    ("3. Peringatan Dini", "Pesan peringatan kualitas udara otomatis terkirim ke warga di zona arah angin (anjuran masker & tutup jendela).", COLOR_ROSE),
-    ("4. Babat & Sirkular", "MPA membabat selebar 3–5 meter; rumput hasil babatan diangkut menjadi pakan ternak atau kompos desa.", COLOR_EMERALD)
+    (SKY,     "01", "Deteksi Asap & Titik Api Dini",
+     "Model YOLOv8n ringan mendeteksi kepulan asap mikro dan heat-spot\npada frame video udara — akurat tanpa sensor thermal."),
+    (AMBER,   "02", "Pemetaan Semak Kering via VARI",
+     "Formula VARI = (G−R)/(G+R−B) mengklasifikasikan piksel ke\nzona merah (kering/risiko tinggi) dan zona hijau (aman)."),
+    (EMERALD, "03", "Jalur Sekat Bakar Optimal",
+     "Algoritma wind-aware menetapkan rute potong terpendek\ndengan safety buffer ≥25 m & koneksi hambatan alami."),
 ]
 
-w_box = Inches(2.75)
-for idx, (title, desc, color) in enumerate(steps):
-    left_pos = Inches(0.8 + idx * 2.95)
-    add_card(s6, left_pos, Inches(1.8), w_box, Inches(4.8), border_color=color)
+for i, (color, num, title, body) in enumerate(steps):
+    top = Inches(1.72) + i * Inches(1.68)
+    circle_label(s5, Inches(1.15), top + Inches(0.4), Inches(0.65), color, num, 15, WHITE, True)
+    txt(s5, title, Inches(1.75), top,            Inches(5.4), Inches(0.48),
+        size=18, bold=True, color=WHITE)
+    txt(s5, body,  Inches(1.75), top + Inches(0.46), Inches(5.4), Inches(0.9),
+        size=15, color=MUTED)
 
-    tb = s6.shapes.add_textbox(left_pos + Inches(0.2), Inches(2.1), w_box - Inches(0.4), Inches(4.2))
-    tf = tb.text_frame
-    tf.word_wrap = True
-    p1 = tf.paragraphs[0]
-    p1.text = title
-    p1.font.bold = True
-    p1.font.size = Pt(19)
-    p1.font.color.rgb = color
-    p1.space_after = Pt(10)
+# Dashboard mockup image — right half
+img_path = os.path.join(os.path.dirname(__file__), "samples", "dashboard_mockup.png")
+if os.path.exists(img_path):
+    s5.shapes.add_picture(img_path, Inches(7.35), Inches(1.62), Inches(5.6), Inches(5.2))
+else:
+    # Placeholder panel if image missing
+    rrect(s5, Inches(7.35), Inches(1.62), Inches(5.6), Inches(5.2),
+          fill=CARD, border=SKY, bw=Pt(1))
+    txt(s5, "[ Dashboard Preview ]",
+        Inches(7.35), Inches(3.5), Inches(5.6), Inches(0.6),
+        size=18, color=MUTED, align=PP_ALIGN.CENTER)
 
-    p2 = tf.add_paragraph()
-    p2.text = desc
-    p2.font.size = Pt(18)
-    p2.font.color.rgb = COLOR_TEXT_WHITE
+# VARI formula strip at bottom of image area
+rrect(s5, Inches(7.35), Inches(6.52), Inches(5.6), Inches(0.42),
+      fill=RGBColor(10, 20, 40), border=SKY, bw=Pt(0.75))
+txt(s5, "VARI = (G − R) / (G + R − B)",
+    Inches(7.45), Inches(6.56), Inches(5.4), Inches(0.35),
+    size=13, color=SKY, align=PP_ALIGN.CENTER)
 
-set_speaker_notes(
-    s6,
-    "Alur lapangan terhubung dalam 4 tahap: Patroli rutin mingguan -> Notifikasi otomatis via WhatsApp ke tim MPA lengkap dengan GPS "
-    "dan panjang babatan -> Peringatan dini PM2.5 ke warga di arah angin -> Pembabatan sekat 3-5 meter di mana sisa semak diangkut "
-    "menjadi pakan/kompos, menutup siklus bahan bakar kering."
+notes(s5,
+    "Tiga lapis CV bekerja secara pipeline: (1) YOLO mendeteksi asap → (2) VARI memetakan bahan bakar → "
+    "(3) Algoritma sekat bakar menentukan rute taktis. Semua berjalan lokal di laptop lapangan tanpa internet.")
+
+
+# ═══════════════════════════════════════════════════════════
+# SLIDE 6 — FIELD EXECUTION (MPA WORKFLOW)
+# 4 large numbered circles atop description columns
+# ═══════════════════════════════════════════════════════════
+s6 = prs.slides.add_slide(blank)
+bg(s6)
+
+tag(s6, "03. Field Execution", Inches(0.75), Inches(0.28))
+slide_title(s6, "Alur Kerja Lapangan Tim MPA — 4 Langkah Sistematis")
+divider(s6, Inches(0.75), Inches(1.52), Inches(11.8), color=LINE)
+
+cols = [
+    (SKY,     "01", "TERBANG\n& REKAM",
+     "Drone RGB standar terbang 60–100 m. Video/foto dikirim ke laptop lapangan via USB/WiFi."),
+    (AMBER,   "02", "UNGGAH\n& PROSES",
+     "SEKAT-AI Engine menganalisis: deteksi asap, heatmap VARI, dan kalkulasi rute sekat <2 menit."),
+    (EMERALD, "03", "BABAT\nSEKAT",
+     "Peta GPS dikirim ke HP anggota MPA via WhatsApp. Tim babat jalur berdasarkan peta akurat."),
+    (ROSE,    "04", "ALERT\nWARGA",
+     "Notifikasi otomatis ke warga downwind: estimasi PM2.5, arah asap, dan zona evakuasi."),
+]
+
+col_width = Inches(2.8)
+col_gap   = Inches(0.35)
+start_x   = Inches(0.75)
+
+for i, (color, num, title, body) in enumerate(cols):
+    lft = start_x + i * (col_width + col_gap)
+    # Large circle
+    circle_label(s6, lft + col_width / 2, Inches(2.42), Inches(1.05), color, num, 26, WHITE)
+    # Title
+    txt(s6, title,
+        lft, Inches(3.08), col_width, Inches(0.75),
+        size=17, bold=True, color=WHITE, align=PP_ALIGN.CENTER)
+    # Body
+    txt(s6, body,
+        lft, Inches(3.9), col_width, Inches(2.1),
+        size=16, color=MUTED, align=PP_ALIGN.CENTER)
+    # Connector arrow (except last)
+    if i < 3:
+        ax = lft + col_width + col_gap * 0.5 - Inches(0.09)
+        txt(s6, "→", ax, Inches(2.2), Inches(0.25), Inches(0.5),
+            size=20, color=LINE, align=PP_ALIGN.CENTER)
+
+# Bottom strip: tech tags
+tech_tags = ["FastAPI + Uvicorn", "YOLOv8n", "OpenCV / VARI", "WhatsApp Gateway"]
+tag_w = Inches(2.4)
+tag_gap = Inches(0.5)
+tag_start = Inches(0.75)
+for i, tag_text in enumerate(tech_tags):
+    pill(s6, tag_text,
+         tag_start + i * (tag_w + tag_gap),
+         Inches(6.55), width=tag_w, fill=CARD, border=LINE)
+
+notes(s6,
+    "4 langkah operasional yang bisa dijalankan relawan non-teknis. "
+    "Tekankan bahwa tidak diperlukan pelatihan khusus — antarmuka dibuat semudah mungkin.")
+
+
+# ═══════════════════════════════════════════════════════════
+# SLIDE 7 — IMPLEMENTATION TIMELINE
+# Horizontal milestone timeline + partner badges
+# ═══════════════════════════════════════════════════════════
+s7 = prs.slides.add_slide(blank)
+bg(s7)
+
+tag(s7, "04. Implementation Plan", Inches(0.75), Inches(0.28))
+slide_title(s7, "Peta Jalan Implementasi — 6 Bulan Pilot")
+divider(s7, Inches(0.75), Inches(1.52), Inches(11.8), color=LINE)
+
+milestones = [
+    (SKY,     "Bulan 1–2", "Setup & Pelatihan",
+     "Instalasi sistem di 2 desa pilot, kalibrasi model YOLO, pelatihan MPA operasi drone."),
+    (AMBER,   "Bulan 3",   "Pilot Pemetaan",
+     "Flight perdana, generate peta VARI & rute sekat bakar pertama, uji dispatch WA."),
+    (EMERALD, "Bulan 4–5", "Implementasi Sekat",
+     "MPA babat sekat berdasarkan peta digital. Monitor PM2.5 sebelum/sesudah."),
+    (ROSE,    "Bulan 6",   "Evaluasi & Replikasi",
+     "Laporan dampak terukur, penyempurnaan model, dokumentasi untuk replikasi 10 desa."),
+]
+
+# Timeline spine
+line_y = Inches(3.15)
+rect(s7, Inches(0.75), line_y - Inches(0.012), Inches(11.8), Inches(0.025), fill=LINE)
+
+dot_xs = [Inches(1.6), Inches(4.6), Inches(7.6), Inches(10.6)]
+
+for i, (color, period, phase, body) in enumerate(milestones):
+    x = dot_xs[i]
+    # Dot on timeline
+    circle(s7, x, line_y, Inches(0.28), color)
+
+    # Content above timeline (odd idx) or below (even idx)
+    if i % 2 == 0:
+        # Above
+        txt(s7, period, x - Inches(1.3), Inches(1.72), Inches(2.6), Inches(0.38),
+            size=13, bold=True, color=color, align=PP_ALIGN.CENTER)
+        txt(s7, phase,  x - Inches(1.3), Inches(2.08), Inches(2.6), Inches(0.42),
+            size=17, bold=True, color=WHITE, align=PP_ALIGN.CENTER)
+        txt(s7, body,   x - Inches(1.3), Inches(2.52), Inches(2.6), Inches(0.6),
+            size=14, color=MUTED, align=PP_ALIGN.CENTER)
+    else:
+        # Below
+        txt(s7, period, x - Inches(1.3), Inches(3.42), Inches(2.6), Inches(0.38),
+            size=13, bold=True, color=color, align=PP_ALIGN.CENTER)
+        txt(s7, phase,  x - Inches(1.3), Inches(3.78), Inches(2.6), Inches(0.42),
+            size=17, bold=True, color=WHITE, align=PP_ALIGN.CENTER)
+        txt(s7, body,   x - Inches(1.3), Inches(4.22), Inches(2.6), Inches(0.6),
+            size=14, color=MUTED, align=PP_ALIGN.CENTER)
+
+# Partner section
+divider(s7, Inches(0.75), Inches(5.75), Inches(11.8), color=LINE)
+txt(s7, "MITRA KUNCI", Inches(0.75), Inches(5.88), Inches(2.0), Inches(0.35),
+    size=12, bold=True, color=MUTED)
+
+partners = ["Dinas Kehutanan", "BPBD Setempat", "Dana Desa", "CSR Perkebunan"]
+for i, p in enumerate(partners):
+    pill(s7, p, Inches(2.95) + i * Inches(2.65), Inches(5.88),
+         width=Inches(2.3), fill=CARD, border=LINE, text_color=MUTED)
+
+notes(s7,
+    "6 bulan pilot dengan 4 fase terstruktur. Tekankan bahwa Bulan 6 bukan akhir, "
+    "tapi starting point replikasi ke 10 desa lainnya dengan model yang sudah terbukti.")
+
+
+# ═══════════════════════════════════════════════════════════
+# SLIDE 8 — RESOURCES & RISK MITIGATION
+# 2-column, circle bullets, divider line (no card boxes)
+# ═══════════════════════════════════════════════════════════
+s8 = prs.slides.add_slide(blank)
+bg(s8)
+
+tag(s8, "04. Resources & Risk", Inches(0.75), Inches(0.28))
+slide_title(s8, "Anggaran Efisien & Mitigasi Risiko Terstruktur")
+divider(s8, Inches(0.75), Inches(1.52), Inches(11.8), color=LINE)
+
+# Left — Resources
+txt(s8, "KEBUTUHAN SUMBER DAYA", Inches(0.75), Inches(1.65), Inches(5.6), Inches(0.42),
+    size=13, bold=True, color=EMERALD)
+
+resources = [
+    ("💻", "Laptop Lapangan (RAM ≥8 GB)",
+     "Spesifikasi standar yang sudah dimiliki sebagian besar tim MPA & dinas kehutanan."),
+    ("🚁", "Drone Kamera RGB (≥1080p)",
+     "Contoh: DJI Mini 2 (Rp 5–7 juta). Tidak diperlukan sensor thermal tambahan."),
+    ("📶", "Koneksi Internet (Opsional)",
+     "Sistem berjalan offline-first. Internet hanya diperlukan untuk pengiriman alert WA."),
+]
+
+for j, (ico, title, body) in enumerate(resources):
+    top = Inches(2.15) + j * Inches(1.55)
+    circle_label(s8, Inches(1.15), top + Inches(0.3), Inches(0.52), EMERALD, ico, 16, WHITE)
+    txt(s8, title, Inches(1.72), top,            Inches(4.5), Inches(0.48),
+        size=17, bold=True, color=WHITE)
+    txt(s8, body,  Inches(1.72), top + Inches(0.46), Inches(4.5), Inches(0.75),
+        size=15, color=MUTED)
+
+# Vertical divider
+rect(s8, Inches(6.6), Inches(1.65), Inches(0.012), Inches(5.3), fill=LINE)
+
+# Right — Risks
+txt(s8, "MITIGASI RISIKO UTAMA", Inches(6.85), Inches(1.65), Inches(5.8), Inches(0.42),
+    size=13, bold=True, color=ROSE)
+
+risks = [
+    ("1", "Blank Spot Sinyal Internet",
+     "SEKAT-AI berjalan penuh offline. Alert WA diantrikan dan dikirim saat sinyal tersedia."),
+    ("2", "Keselamatan Tim MPA",
+     "Algoritma mengunci safety buffer minimum 25–35 m dari zona api aktif secara otomatis."),
+    ("3", "False Positive Deteksi",
+     "Human-in-the-loop: setiap alert memerlukan konfirmasi 1 klik dari koordinator lapangan."),
+]
+
+for k, (num, title, body) in enumerate(risks):
+    top = Inches(2.15) + k * Inches(1.55)
+    circle_label(s8, Inches(7.3), top + Inches(0.3), Inches(0.52), ROSE, num, 18, WHITE)
+    txt(s8, title, Inches(7.88), top,            Inches(4.75), Inches(0.48),
+        size=17, bold=True, color=WHITE)
+    txt(s8, body,  Inches(7.88), top + Inches(0.46), Inches(4.75), Inches(0.75),
+        size=15, color=MUTED)
+
+notes(s8,
+    "Anggaran SMOKECUT sangat lean: tidak ada pembelian drone thermal baru. "
+    "Tiga risiko utama telah dimitigasi secara teknis — offline mode, safety buffer otomatis, dan verifikasi manusia.")
+
+
+# ═══════════════════════════════════════════════════════════
+# SLIDE 9 — IMPACT & SUSTAINABILITY
+# Large stat callouts + sustainability pills
+# ═══════════════════════════════════════════════════════════
+s9 = prs.slides.add_slide(blank)
+bg(s9)
+
+tag(s9, "06. Expected Impact & Sustainability", Inches(0.75), Inches(0.28))
+slide_title(s9, "Dampak Terukur & Model Keberlanjutan Jangka Panjang")
+divider(s9, Inches(0.75), Inches(1.52), Inches(11.8), color=LINE)
+
+# 3 large stats
+stat_callout(s9, Inches(0.75), Inches(1.68), "≥50%",
+             "Penurunan luas lahan terbakar\ndalam 6 bulan pilot", SKY, num_size=64)
+stat_callout(s9, Inches(4.6),  Inches(1.68), "≥80%",
+             "Pembabatan sekat preventif\nberbasis data peta VARI", EMERALD, num_size=64)
+stat_callout(s9, Inches(8.5),  Inches(1.68), "100%",
+             "Biomassa dikonversi jadi\nkompos / pakan ternak", AMBER, num_size=64)
+
+divider(s9, Inches(0.75), Inches(3.75), Inches(11.8), color=LINE)
+
+# KPI detail
+txt(s9, "OUTPUT TERUKUR (PILOT 6 BULAN)", Inches(0.75), Inches(3.9), Inches(11.8), Inches(0.4),
+    size=13, bold=True, color=MUTED)
+txt(s9,
+    "• 2 desa terpetakan penuh dengan peta semak kering per musim kemarau\n"
+    "• ≥20 anggota MPA tersertifikasi operasi drone & interpretasi peta digital\n"
+    "• Jalur sekat bakar terbangun di 100% zona semak merah teridentifikasi",
+    Inches(0.75), Inches(4.35), Inches(11.8), Inches(1.0),
+    size=17, color=MUTED)
+
+divider(s9, Inches(0.75), Inches(5.45), Inches(11.8), color=LINE)
+
+# Sustainability model
+txt(s9, "MODEL KEBERLANJUTAN  —  CROSS-SUBSIDY", Inches(0.75), Inches(5.58),
+    Inches(5.5), Inches(0.4), size=13, bold=True, color=MUTED)
+
+pill(s9, "🌿  GRATIS — Desa & MPA",
+     Inches(0.75), Inches(6.1), width=Inches(4.2),
+     fill=RGBColor(16, 70, 50), border=EMERALD, text_color=WHITE, size=15)
+txt(s9, "Didanai Dana Desa Tanggap Bencana",
+    Inches(0.75), Inches(6.58), Inches(4.2), Inches(0.35), size=13, color=MUTED)
+
+pill(s9, "💼  BERBAYAR — Korporasi & Dinas",
+     Inches(5.4), Inches(6.1), width=Inches(4.5),
+     fill=RGBColor(40, 50, 15), border=AMBER, text_color=WHITE, size=15)
+txt(s9, "CSR Perkebunan & Dinas Lingkungan Hidup",
+    Inches(5.4), Inches(6.58), Inches(4.5), Inches(0.35), size=13, color=MUTED)
+
+notes(s9,
+    "Impact slide: tiga angka utama memperlihatkan hasil konkret. Cross-subsidy model memastikan "
+    "komunitas desa & MPA tidak dibebankan biaya apapun — model bisnis yang inklusif sekaligus berkelanjutan.")
+
+
+# ═══════════════════════════════════════════════════════════
+# SLIDE 10 — CONCLUSION & REFERENCES
+# Center-weighted quote, 2-col references, decorative circle
+# ═══════════════════════════════════════════════════════════
+s10 = prs.slides.add_slide(blank)
+bg(s10)
+
+# Large decorative circle motif — bottom right
+circle(s10, Inches(13.0), Inches(8.1), Inches(5.0), RGBColor(21, 33, 54))
+circle(s10, Inches(13.0), Inches(8.1), Inches(3.2), RGBColor(26, 42, 70))
+
+# SMOKECUT wordmark — top left
+txt(s10, "SMOKECUT",
+    Inches(0.75), Inches(0.4), Inches(4.5), Inches(0.6),
+    size=16, bold=True, color=SKY)
+
+divider(s10, Inches(0.75), Inches(1.08), Inches(11.8), color=LINE)
+
+# Central quote
+txt(s10,
+    "\u201cKualitas udara bersih tidak dimulai saat masker dipakai —\n"
+    "tetapi saat asap dicegah mengepul ke udara.\u201d",
+    Inches(0.75), Inches(1.3), Inches(11.8), Inches(1.6),
+    size=28, bold=True, color=WHITE, align=PP_ALIGN.CENTER, italic=True)
+
+txt(s10, "— Tim SMOKECUT, AIRIMPACT 2026",
+    Inches(0.75), Inches(2.98), Inches(11.8), Inches(0.42),
+    size=15, color=SKY, align=PP_ALIGN.CENTER)
+
+divider(s10, Inches(0.75), Inches(3.52), Inches(11.8), color=LINE)
+
+# References — 2 columns
+txt(s10, "REFERENSI KUNCI", Inches(0.75), Inches(3.65), Inches(11.8), Inches(0.38),
+    size=12, bold=True, color=MUTED)
+
+refs_left = (
+    "1. MarkPlus, Inc. (2025). Survei Persepsi Masyarakat terhadap Kualitas Udara "
+    "(Guidebook AIRIMPACT 2026).\n"
+    "2. IQAir. (2026). Jabodetabek Air Quality Snapshot, 29 Oktober 2026.\n"
+    "3. RCCC UI. (2023). Kajian Klaim BPJS Kesehatan Terkait Penyakit Polusi Udara di Jakarta."
+)
+refs_right = (
+    "4. Permen LHK No. 28 Tahun 2021 tentang Sistem Pengendalian Kebakaran Hutan dan Lahan.\n"
+    "5. Gitelson, A.A., et al. (2002). Novel Algorithms for Remote Estimation of Vegetation "
+    "Fraction (VARI). Remote Sensing of Environment.\n"
+    "6. USDA Forest Service. (2018). Fire Management Guidelines: Fuel Breaks & Safety Zones."
 )
 
+txt(s10, refs_left,  Inches(0.75), Inches(4.1), Inches(5.8), Inches(2.5),
+    size=13, color=MUTED)
+txt(s10, refs_right, Inches(6.85), Inches(4.1), Inches(5.8), Inches(2.5),
+    size=13, color=MUTED)
 
-# ==========================================================
-# SLIDE 7: 05. IMPLEMENTATION PLAN (TIMELINE & MITRA)
-# ==========================================================
-s7 = prs.slides.add_slide(blank_slide_layout)
-add_background(s7)
-add_header(s7, "05. Implementation Plan", "Roadmap Pilot 6 Bulan & Kolaborasi Lintas Sektor")
+rect(s10, Inches(6.5), Inches(4.1), Inches(0.012), Inches(2.5), fill=LINE)
 
-# Top Container: 4 Phases Timeline
-add_card(s7, Inches(0.8), Inches(1.8), Inches(11.7), Inches(2.4), "TIMELINE PILOT (2 DESA RAWAN KARHUTLA)", border_color=COLOR_SKY)
-tb = s7.shapes.add_textbox(Inches(1.05), Inches(2.5), Inches(11.1), Inches(1.5))
-tf = tb.text_frame
-tf.word_wrap = True
-p = tf.paragraphs[0]
-p.text = "• Bulan 1 (Persiapan): MoU dengan BPBD & Desa, pemetaan baseline lahan, dan kalibrasi dataset lokal.\n• Bulan 2 (Integrasi & Pelatihan): Uji coba unggah video drone mitra + pelatihan pembabatan MPA.\n• Bulan 3–5 (Operasional): Patroli rutin pra-kemarau, pembuatan sekat bakar preventif, dan uji sistem WA.\n• Bulan 6 (Evaluasi & Skala): Audit penurunan kejadian api/asap dan penyusunan SOP replikasi kecamatan."
-p.font.size = Pt(18)
-p.font.color.rgb = COLOR_TEXT_WHITE
+# CTA bottom
+txt(s10, "Terima kasih — Dewan Juri AIRIMPACT 2026",
+    Inches(0.75), Inches(6.8), Inches(8.0), Inches(0.5),
+    size=16, color=MUTED, italic=True)
 
-# Bottom Container: 4 Key Partners
-add_card(s7, Inches(0.8), Inches(4.4), Inches(11.7), Inches(2.2), "4 MITRA KOLABORASI KUNCI", border_color=COLOR_AMBER)
-tb = s7.shapes.add_textbox(Inches(1.05), Inches(5.1), Inches(11.1), Inches(1.3))
-tf = tb.text_frame
-tf.word_wrap = True
-p = tf.paragraphs[0]
-p.text = "• BPBD / Manggala Agni: Pemanfaatan aset drone dan validasi standar keselamatan sekat bakar.\n• Pemerintah Desa & MPA: Tim eksekutor pembabatan jalur dan pengolahan biomassa kompos.\n• Perguruan Tinggi / Akademisi: Mitra riset validasi model Computer Vision dan kalibrasi indeks VARI.\n• Sektor Swasta / CSR Perkebunan: Dukungan pendanaan berkelanjutan dan insentif desa tangguh."
-p.font.size = Pt(18)
-p.font.color.rgb = COLOR_TEXT_WHITE
-
-set_speaker_notes(
-    s7,
-    "Kami merancang roadmap pilot 6 bulan di 2 desa percontohan rawan kebakaran lahan, mulai dari MoU, kalibrasi lokal, "
-    "pelatihan taktis MPA, operasional pra-kemarau, hingga audit evaluasi. Kolaborasi melibatkan pentahelix: "
-    "BPBD, Pemerintah Desa/MPA, Perguruan Tinggi, dan CSR Perkebunan."
-)
+notes(s10,
+    "Tutup dengan kutipan inti SMOKECUT. Sampaikan rasa terima kasih kepada dewan juri. "
+    "Siap untuk sesi tanya jawab — tekankan: sistem sudah berjalan dan bisa didemonstrasikan langsung.")
 
 
-# ==========================================================
-# SLIDE 8: 05. IMPLEMENTATION PLAN (SUMBER DAYA & RISIKO)
-# ==========================================================
-s8 = prs.slides.add_slide(blank_slide_layout)
-add_background(s8)
-add_header(s8, "05. Implementation Plan", "Kebutuhan Sumber Daya Ramping & Mitigasi Risiko Lapangan")
-
-# Left Column: Resources
-add_card(s8, Inches(0.8), Inches(1.8), col_w, col_h, "KEBUTUHAN SUMBER DAYA RAMPING", border_color=COLOR_EMERALD)
-tb = s8.shapes.add_textbox(Inches(1.05), Inches(2.6), col_w - Inches(0.5), Inches(3.8))
-tf = tb.text_frame
-tf.word_wrap = True
-p = tf.paragraphs[0]
-p.text = "• Hemat karena Tanpa Pengadaan Drone Baru:\nMemanfaatkan drone kamera RGB yang telah dimiliki BPBD atau jasa drone lokal.\n\n• Infrastruktur Komputasi Terjangkau:\nDapat dijalankan offline di laptop lapangan standar core i5 atau cloud server ringan.\n\n• Perlengkapan Keselamatan Lapangan:\nPaket APD dasar bagi tim MPA (masker respirator, sarung tangan tebal, sepatu bot, dan parang pemotong)."
-p.font.size = Pt(18)
-p.font.color.rgb = COLOR_TEXT_WHITE
-
-# Right Column: Risk Mitigation
-add_card(s8, Inches(6.85), Inches(1.8), col_w, col_h, "MITIGASI RISIKO UTAMA", border_color=COLOR_ROSE)
-tb = s8.shapes.add_textbox(Inches(7.1), Inches(2.6), col_w - Inches(0.5), Inches(3.8))
-tf = tb.text_frame
-tf.word_wrap = True
-p = tf.paragraphs[0]
-p.text = "1. Susah Sinyal di Lapangan:\nAlur rekam–simpan–proses memastikan seluruh inferensi AI berjalan offline tanpa perlu internet.\n\n2. Keselamatan Tim Darat:\nAlgoritma mengunci safety buffer minimal (25–35 meter) searah angin agar MPA tidak mendekati kepala api.\n\n3. Salah Deteksi Kabut / Asap:\nSistem verifikasi cepat 1 klik oleh operator sebelum peringatan broadcast dipancarkan ke warga desa."
-p.font.size = Pt(18)
-p.font.color.rgb = COLOR_TEXT_WHITE
-
-set_speaker_notes(
-    s8,
-    "Aspek feasibility sangat tinggi karena tidak ada pembelian drone thermal baru. Kami juga memitigasi 3 risiko utama: "
-    "Sistem mendukung offline-first untuk mengatasi blank spot sinyal, algoritma mengunci safety buffer minimal 25-35 meter "
-    "untuk menjamin keselamatan MPA, dan verifikasi 1 klik untuk mencegah alarm palsu."
-)
-
-
-# ==========================================================
-# SLIDE 9: 06. EXPECTED IMPACT & SUSTAINABILITY
-# ==========================================================
-s9 = prs.slides.add_slide(blank_slide_layout)
-add_background(s9)
-add_header(s9, "06. Expected Impact & Sustainability", "Dampak Terukur & Model Keberlanjutan Jangka Panjang")
-
-# Top Container: KPI Impact
-add_card(s9, Inches(0.8), Inches(1.8), Inches(11.7), Inches(2.5), "INDIKATOR KEBERHASILAN (PILOT 6 BULAN)", border_color=COLOR_SKY)
-tb = s9.shapes.add_textbox(Inches(1.05), Inches(2.5), Inches(11.1), Inches(1.6))
-tf = tb.text_frame
-tf.word_wrap = True
-p = tf.paragraphs[0]
-p.text = "• Output Terukur: 2 desa terpetakan penuh, ≥ 20 anggota MPA bersertifikat taktis, dan jalur sekat terbangun di 100% zona semak merah.\n• Outcome Perilaku: ≥ 80% pembabatan dilakukan preventif berbasis data peta; 100% biomassa hasil babatan diolah jadi kompos/pakan.\n• Impact Kualitas Udara: Penurunan luas lahan terbakar ≥ 50%, mencegah lonjakan partikulat PM2.5 masif ke kawasan permukiman."
-p.font.size = Pt(18)
-p.font.color.rgb = COLOR_TEXT_WHITE
-
-# Bottom Container: Sustainability Model
-add_card(s9, Inches(0.8), Inches(4.5), Inches(11.7), Inches(2.1), "MODEL KEBERLANJUTAN (CROSS-SUBSIDY MODEL)", border_color=COLOR_EMERALD)
-tb = s9.shapes.add_textbox(Inches(1.05), Inches(5.2), Inches(11.1), Inches(1.2))
-tf = tb.text_frame
-tf.word_wrap = True
-p = tf.paragraphs[0]
-p.text = "• Gratis 100% untuk Komunitas Desa & MPA: Didukung alokasi Dana Desa Tanggap Bencana.\n• Berbayar Ringan (SaaS / Program CSR): Dikenakan pada korporasi perkebunan dan dinas lingkungan daerah untuk mendanai pemeliharaan server dan ekspansi wilayah replikasi."
-p.font.size = Pt(18)
-p.font.color.rgb = COLOR_TEXT_WHITE
-
-set_speaker_notes(
-    s9,
-    "Dampak SMOKECUT terukur secara kuantitatif: penurunan kebakaran minimal 50% dan proteksi PM2.5 bagi warga. "
-    "Untuk keberlanjutan finansial, kami menggunakan Cross-Subsidy Model: 100% gratis bagi desa dan relawan MPA via Dana Desa, "
-    "sementara biaya pemeliharaan didanai oleh program CSR perkebunan dan instansi kehutanan komersial."
-)
-
-
-# ==========================================================
-# SLIDE 10: CONCLUSION & REFERENCES
-# ==========================================================
-s10 = prs.slides.add_slide(blank_slide_layout)
-add_background(s10)
-add_header(s10, "Conclusion & References", "Kualitas Udara Bersih Dimulai dari Pencegahan Sebelum Asap Menyebar")
-
-# Top Box: Conclusion Statement
-add_card(s10, Inches(0.8), Inches(1.8), Inches(11.7), Inches(1.9), border_color=COLOR_SKY)
-tb = s10.shapes.add_textbox(Inches(1.1), Inches(2.0), Inches(11.1), Inches(1.5))
-tf = tb.text_frame
-tf.word_wrap = True
-p = tf.paragraphs[0]
-p.text = "“SMOKECUT membuktikan bahwa solusi cerdas tidak harus mahal. Dengan memanfaatkan drone kamera RGB biasa dan algoritma visual terarah, kita mengubah paradigma pemadaman panik menjadi aksi preventif yang terukur, melindungi paru-paru warga secara berkelanjutan.”"
-p.font.size = Pt(19)
-p.font.bold = True
-p.font.color.rgb = COLOR_TEXT_WHITE
-
-# Bottom Box: References
-add_card(s10, Inches(0.8), Inches(3.9), Inches(11.7), Inches(2.8), "REFERENSI KUNCI", border_color=COLOR_BORDER)
-tb = s10.shapes.add_textbox(Inches(1.1), Inches(4.5), Inches(11.1), Inches(2.0))
-tf = tb.text_frame
-tf.word_wrap = True
-p = tf.paragraphs[0]
-p.text = "1. MarkPlus, Inc. (2025). Survei Persepsi dan Tindakan Masyarakat terhadap Kualitas Udara (Guidebook AIRIMPACT 2026).\n2. IQAir. (2026). Jabodetabek Air Quality Snapshot, 29 Oktober 2026.\n3. RCCC UI. (2023). Kajian Klaim BPJS Kesehatan Terkait Penyakit Polusi Udara di Jakarta.\n4. Permen LHK No. 28 Tahun 2021 tentang Sistem Pengendalian Kebakaran Hutan dan Lahan.\n5. Gitelson, A. A., et al. (2002). Novel Algorithms for Remote Estimation of Vegetation Fraction (VARI). Remote Sensing of Environment.\n6. USDA Forest Service. (2018). Fire Management Guidelines: Fuel Breaks and Safety Zone Calculations."
-p.font.size = Pt(13)
-p.font.color.rgb = COLOR_TEXT_MUTED
-
-set_speaker_notes(
-    s10,
-    "Sebagai penutup, kualitas udara bersih tidak dimulai saat masker dipakai, tetapi saat asap dicegah mengepul ke udara. "
-    "SMOKECUT hadir sebagai solusi nyata, murah, dan teruji yang memberdayakan masyarakat di garis depan. "
-    "Terima kasih atas perhatian Dewan Juri AIRIMPACT 2026."
-)
-
-# Save presentation
+# ═══════════════════════════════════════════════════════════
+# SAVE
+# ═══════════════════════════════════════════════════════════
 prs.save(OUTPUT_FILE)
-print(f"Presentation successfully generated at: {OUTPUT_FILE}")
+print(f"✅  Presentation saved → {OUTPUT_FILE}  ({prs.slides.__len__()} slides)")
