@@ -1,152 +1,134 @@
 """Early Smoke and Flame / Hotspot Detection Service for SEKAT-AI.
 
-Provides lightweight, deterministic Computer Vision detection as a primary / fallback
-engine, with optional YOLOv8 inference if local weights are present.
+Lightweight, deterministic computer-vision detection based on colour and texture.
 """
 
-import math
+import subprocess
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, Any, List, Union
-import numpy as np
-from PIL import Image, ImageDraw, ImageFont
+from typing import Any, Dict, List, Optional, Union
 
-from backend.app.core.config import MODELS_DIR, OUTPUT_DIR
+import cv2
+import numpy as np
+from PIL import Image
+
+from backend.app.core.config import OUTPUT_DIR
+from backend.app.services.map_renderer import draw_detections, draw_firebreak, transform_points
+
+MAX_ANNOTATED_SECONDS = 60
+
+
+@dataclass
+class SceneMasks:
+    """Boolean per-pixel scene classes of one frame."""
+
+    fire: np.ndarray
+    smoke: np.ndarray
+    fuel: np.ndarray  # Unburnt, unobscured vegetation/soil that fire can reach
+
+
+def flame_mask(rgb: np.ndarray) -> np.ndarray:
+    """Pixels with flame colour (bright, saturated red-orange to yellow)."""
+    hsv = cv2.cvtColor(rgb, cv2.COLOR_RGB2HSV)
+    mask = cv2.inRange(hsv, (3, 105, 222), (32, 255, 255)) > 0
+    ys, xs = np.nonzero(mask)
+    r, g, b = rgb[ys, xs].astype(np.int16).T
+    mask[ys, xs] = (g >= 85) & (r - b >= 90) & (r >= g)
+    return mask
+
+
+def ground_mask(rgb: np.ndarray) -> np.ndarray:
+    """Coloured (unburnt, smoke-free) land, as an 8-bit mask for feature tracking."""
+    return cv2.inRange(cv2.cvtColor(cv2.blur(rgb, (9, 9)), cv2.COLOR_RGB2HSV), (0, 55, 20), (179, 255, 255))
+
+
+def segment_scene(rgb: np.ndarray) -> SceneMasks:
+    """Split a frame into flame, smoke/haze, and unburnt fuel.
+
+    Smoke, sky, ash and asphalt are nearly colourless, while vegetation and dry
+    shrubs keep colour saturation. Smoke is additionally bright and untextured.
+    """
+    h, w = rgb.shape[:2]
+    sigma = max(0.8, 5.0 * max(h, w) / 1280.0)
+    fire = flame_mask(rgb)
+    blurred = cv2.cvtColor(cv2.GaussianBlur(rgb, (0, 0), sigma), cv2.COLOR_RGB2HSV)
+    gray = cv2.cvtColor(rgb, cv2.COLOR_RGB2GRAY).astype(np.float32)
+    mean = cv2.GaussianBlur(gray, (0, 0), sigma)
+    std = np.sqrt(np.maximum(cv2.GaussianBlur(gray * gray, (0, 0), sigma) - mean * mean, 0))
+    colourless = blurred[..., 1] < 55
+    smoke = colourless & (blurred[..., 2] > 125) & (std < 13)
+    fuel = ~colourless & (blurred[..., 2] > 20) & ~fire
+    return SceneMasks(fire=fire, smoke=smoke, fuel=fuel)
 
 
 class FireSmokeDetector:
-    """Detects early micro-flames and smoke plumes from drone RGB imagery."""
+    """Detects fire fronts and smoke areas from drone RGB imagery."""
 
-    def __init__(self, weights_path: Path = MODELS_DIR / "yolov8n.pt"):
-        self.weights_path = weights_path
-        self._yolo_model = None
-
-    def _get_connected_components_bboxes(
-        self, binary_mask: np.ndarray, min_area: int = 8, max_area: int = 50000
-    ) -> List[Dict[str, int]]:
-        """Extract bounding boxes from a binary mask using fast OpenCV connected components."""
-        import cv2
-
-        num_labels, labels, stats, centroids = cv2.connectedComponentsWithStats(
-            binary_mask.astype(np.uint8), connectivity=8
-        )
-        bboxes = []
-        for i in range(1, num_labels):
-            area = int(stats[i, cv2.CC_STAT_AREA])
-            if min_area <= area <= max_area:
-                x = int(stats[i, cv2.CC_STAT_LEFT])
-                y = int(stats[i, cv2.CC_STAT_TOP])
-                w = int(stats[i, cv2.CC_STAT_WIDTH])
-                h = int(stats[i, cv2.CC_STAT_HEIGHT])
-                bboxes.append({
-                    "x": x,
-                    "y": y,
-                    "w": w,
-                    "h": h,
-                    "area": area,
-                    "centroid_x": int(centroids[i][0]),
-                    "centroid_y": int(centroids[i][1]),
-                })
-
-        # Merge overlapping or close bounding boxes
-        merged = []
-        for b in bboxes:
-            merged_with_existing = False
-            for m in merged:
-                # Check distance between centroids
-                dist = np.hypot(b["centroid_x"] - m["centroid_x"], b["centroid_y"] - m["centroid_y"])
-                if dist < max(b["w"], b["h"], m["w"], m["h"]) * 0.8:
-                    # Merge boxes
-                    nx0 = min(m["x"], b["x"])
-                    ny0 = min(m["y"], b["y"])
-                    nx1 = max(m["x"] + m["w"], b["x"] + b["w"])
-                    ny1 = max(m["y"] + m["h"], b["y"] + b["h"])
-                    m["x"] = nx0
-                    m["y"] = ny0
-                    m["w"] = nx1 - nx0
-                    m["h"] = ny1 - ny0
-                    m["area"] += b["area"]
-                    m["centroid_x"] = (nx0 + nx1) // 2
-                    m["centroid_y"] = (ny0 + ny1) // 2
-                    merged_with_existing = True
-                    break
-            if not merged_with_existing:
-                merged.append(b)
-
-        return merged
-
-    def detect_cv(self, rgb_array: np.ndarray) -> List[Dict[str, Any]]:
-        """Lightweight and deterministic Computer Vision flame & smoke detector."""
-        r = rgb_array[:, :, 0].astype(int)
-        g = rgb_array[:, :, 1].astype(int)
-        b = rgb_array[:, :, 2].astype(int)
-
-        detections = []
-        det_id = 1
-
-        # 1. Hotspot / Flame core detection:
-        # High Red, moderate Green, low Blue with pronounced R - B differential
-        flame_mask = (r >= 210) & (g >= 100) & (b <= 95) & (r - b >= 90)
-        flame_clusters = self._get_connected_components_bboxes(flame_mask, min_area=8)
-
-        for cluster in flame_clusters:
-            # Score confidence based on core brightness and size
-            confidence = min(0.98, 0.85 + (cluster["area"] / 500.0) * 0.12)
-            detections.append({
-                "id": det_id,
-                "class_name": "hotspot",
-                "label": "Titik Api Awal",
-                "confidence": round(confidence, 3),
-                "bbox": {
-                    "x": cluster["x"],
-                    "y": cluster["y"],
-                    "w": cluster["w"],
-                    "h": cluster["h"],
-                },
-                "centroid": {
-                    "x": cluster["centroid_x"],
-                    "y": cluster["centroid_y"],
-                },
+    @staticmethod
+    def _regions(mask: np.ndarray, link_px: int, min_area: int, open_px: int = 0) -> List[Dict[str, Any]]:
+        """Group nearby mask pixels into regions, sorted by area (largest first)."""
+        # Work on the occupied part only; flames usually cover a small area.
+        ox, oy, cw, ch = cv2.boundingRect(mask.astype(np.uint8))
+        if cw == 0:
+            return []
+        work = mask[oy:oy + ch, ox:ox + cw].astype(np.uint8)
+        if open_px > 1:
+            kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (open_px, open_px))
+            work = cv2.morphologyEx(work, cv2.MORPH_OPEN, kernel)
+        size = max(3, link_px | 1)
+        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (size, size))
+        # Pad so closing is not cut off at the image border.
+        padded = cv2.copyMakeBorder(work, size, size, size, size, cv2.BORDER_CONSTANT)
+        closed = cv2.morphologyEx(padded, cv2.MORPH_CLOSE, kernel)[size:-size, size:-size].copy()
+        _, labels, stats, _ = cv2.connectedComponentsWithStats(closed, connectivity=8)
+        areas = np.bincount(labels.ravel(), weights=work.ravel())
+        regions = []
+        for i in np.argsort(-areas):
+            if i == 0 or areas[i] < min_area:
+                continue
+            x, y, bw, bh = (int(v) for v in stats[i][:4])
+            local = (labels[y:y + bh, x:x + bw] == i).astype(np.uint8)
+            radius = float(cv2.distanceTransform(np.pad(local, 1), cv2.DIST_L2, 5).max())
+            ys, xs = np.nonzero(local & work[y:y + bh, x:x + bw])
+            contours, _ = cv2.findContours(local, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE, offset=(x + ox, y + oy))
+            contour = max(contours, key=cv2.contourArea)
+            contour = cv2.approxPolyDP(contour, 0.0015 * max(mask.shape), True)
+            regions.append({
+                "area": int(areas[i]),
+                "compactness": radius / float(np.sqrt(areas[i])),
+                "bbox": {"x": x + ox, "y": y + oy, "w": bw, "h": bh},
+                "centroid": {"x": int(xs.mean()) + x + ox, "y": int(ys.mean()) + y + oy},
+                "contour": contour.reshape(-1, 2).tolist(),
             })
-            det_id += 1
+        return regions
 
-        # 2. Smoke plume detection:
-        # Grayish / hazy appearance: elevated Blue compared to dry fuel, balanced R & G,
-        # moderate to high brightness, and adjacent to dry / warm areas.
-        # Background dry grass has B <= 95; smoke plume has B in [105, 175] with R, G in [160, 235]
-        smoke_mask = (
-            (b >= 105)
-            & (b <= 175)
-            & (r >= 165)
-            & (r <= 235)
-            & (g >= 145)
-            & (g <= 215)
-            & (abs(r - g) <= 50)
-            & (r - b <= 100)
-            & (~flame_mask)
-        )
-        smoke_clusters = self._get_connected_components_bboxes(smoke_mask, min_area=20)
+    def detect_cv(self, rgb_array: np.ndarray, masks: Optional[SceneMasks] = None) -> List[Dict[str, Any]]:
+        """Deterministic detector returning one entry per fire front / smoke area."""
+        masks = masks or segment_scene(rgb_array)
+        h, w = rgb_array.shape[:2]
+        s = max(h, w) / 1280.0
+        detections: List[Dict[str, Any]] = []
 
-        for cluster in smoke_clusters:
-            # Plumes must be sufficiently sized to be considered real smoke
-            confidence = min(0.92, 0.74 + (cluster["area"] / 1000.0) * 0.15)
+        def add(region: Dict[str, Any], class_name: str, label: str, confidence: float) -> None:
             detections.append({
-                "id": det_id,
-                "class_name": "smoke",
-                "label": "Kepulan Asap Dini",
+                "id": len(detections) + 1,
+                "class_name": class_name,
+                "label": label,
                 "confidence": round(confidence, 3),
-                "bbox": {
-                    "x": cluster["x"],
-                    "y": cluster["y"],
-                    "w": cluster["w"],
-                    "h": cluster["h"],
-                },
-                "centroid": {
-                    "x": cluster["centroid_x"],
-                    "y": cluster["centroid_y"],
-                },
+                "bbox": region["bbox"],
+                "centroid": region["centroid"],
+                "area_px": region["area"],
+                "contour": region["contour"],
             })
-            det_id += 1
 
+        for reg in self._regions(masks.fire, int(22 * s), max(8, int(40 * s * s))):
+            is_front = max(reg["bbox"]["w"], reg["bbox"]["h"]) > 0.08 * max(h, w)
+            label = "Garis Api Aktif" if is_front else "Titik Api Awal"
+            add(reg, "hotspot", label, min(0.98, 0.85 + reg["area"] / (4000.0 * s * s) * 0.12))
+        smokes = self._regions(masks.smoke, int(25 * s), max(60, int(0.01 * h * w)), open_px=int(15 * s))
+        # Roads and canals are grey too, but long and thin
+        for reg in [r for r in smokes if r["compactness"] >= 0.12][:3]:
+            add(reg, "smoke", "Area Asap", min(0.92, 0.74 + reg["area"] / (h * w) * 0.5))
         return detections
 
     def detect(self, image_input: Union[str, Path, Image.Image, np.ndarray], image_id: str) -> Dict[str, Any]:
@@ -165,64 +147,18 @@ class FireSmokeDetector:
 
         h, w = rgb_arr.shape[:2]
 
-        # Use CV heuristic detector (or YOLO if weights exist)
-        detections = self.detect_cv(rgb_arr)
-
-        # Generate transparent overlay with organic perimeter annotations (replaces crude boxes)
+        masks = segment_scene(rgb_arr)
+        detections = self.detect_cv(rgb_arr, masks)
         overlay = Image.new("RGBA", (w, h), (0, 0, 0, 0))
-        draw = ImageDraw.Draw(overlay)
-
-        drawn_tags = []
-        fire_tags_count = 0
-        smoke_tags_count = 0
-        for det in detections:
-            bbox = det["bbox"]
-            x0, y0 = bbox["x"], bbox["y"]
-            w_b, h_b = bbox["w"], bbox["h"]
-            x1, y1 = x0 + w_b, y0 + h_b
-
-            if det["class_name"] == "hotspot":
-                color_box = (239, 68, 68, 240)  # Bright Red
-                color_fill = (239, 68, 68, 65)
-                # Multi-layer thermal glow around fire core
-                draw.ellipse([x0 - 5, y0 - 5, x1 + 5, y1 + 5], fill=(239, 68, 68, 50), outline=(239, 68, 68, 180), width=2)
-                draw.ellipse([x0, y0, x1, y1], fill=(249, 115, 22, 180), outline=(255, 255, 255, 240), width=2)
-
-                # Only draw tag badge if under limit and does not collide with a nearby tag
-                can_label = (fire_tags_count < 2) and not any(math.hypot(x0 - tx, y0 - ty) < 120 for tx, ty in drawn_tags)
-                if can_label:
-                    label_text = f"🔥 API AKTIF {int(det['confidence']*100)}%"
-                    tag_w = max(80, len(label_text) * 6 + 10)
-                    tag_h = 16
-                    tag_y0 = max(0, y0 - tag_h - 2)
-                    draw.rectangle([x0, tag_y0, x0 + tag_w, tag_y0 + tag_h], fill=(15, 23, 42, 225), outline=color_box, width=1)
-                    draw.text((x0 + 4, tag_y0 + 2), label_text, fill=(255, 255, 255, 255))
-                    drawn_tags.append((x0, y0))
-                    fire_tags_count += 1
-            else:
-                color_box = (56, 189, 248, 200)  # Light Sky Blue
-                color_fill = (56, 189, 248, 28)
-                # Rounded organic plume boundary
-                draw.rounded_rectangle([x0, y0, x1, y1], radius=max(6, min(16, w_b // 4)), outline=color_box, fill=color_fill, width=2)
-
-                # Only label primary smoke plumes
-                can_label = (smoke_tags_count < 1) and (w_b * h_b > 2000) and not any(math.hypot(x0 - tx, y0 - ty) < 140 for tx, ty in drawn_tags)
-                if can_label:
-                    label_text = f"💨 ASAP PM2.5 ({int(det['confidence']*100)}%)"
-                    tag_w = max(90, len(label_text) * 6 + 10)
-                    tag_h = 16
-                    tag_y0 = max(0, y0 - tag_h - 2)
-                    draw.rectangle([x0, tag_y0, x0 + tag_w, tag_y0 + tag_h], fill=(15, 23, 42, 225), outline=color_box, width=1)
-                    draw.text((x0 + 4, tag_y0 + 2), label_text, fill=(255, 255, 255, 255))
-                    drawn_tags.append((x0, y0))
-                    smoke_tags_count += 1
+        draw_detections(overlay, detections, [])
 
         overlay_filename = f"detections_{image_id}.png"
         overlay_path = OUTPUT_DIR / overlay_filename
-        overlay.save(overlay_path, "PNG")
+        overlay.save(overlay_path, "PNG", compress_level=1)
 
         return {
             "detections": detections,
+            "masks": masks,
             "total_detected": len(detections),
             "hotspot_count": sum(1 for d in detections if d["class_name"] == "hotspot"),
             "smoke_count": sum(1 for d in detections if d["class_name"] == "smoke"),
@@ -230,77 +166,132 @@ class FireSmokeDetector:
             "overlay_url": f"/static/output/{overlay_filename}",
         }
 
-    def annotate_video(self, input_video_path: Path, output_video_path: Path) -> Path:
-        """Process video frame-by-frame and annotate bounding boxes that move dynamically with the video."""
-        import cv2
-        import shutil
-        import subprocess
+    @staticmethod
+    def select_keyframe(video_path: Path, samples: int = 12) -> Optional[int]:
+        """Return the index of a sharp frame showing much fire, away from the edge."""
+        cap = cv2.VideoCapture(str(video_path))
+        total = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        best, best_score = None, -1.0
+        for idx in sorted({int(i) for i in np.linspace(0, max(0, total - 1) * 0.95, samples)}):
+            cap.set(cv2.CAP_PROP_POS_FRAMES, idx)
+            ok, frame = cap.read()
+            if not ok:
+                continue
+            k = 640.0 / max(frame.shape[:2])
+            small = cv2.resize(frame, None, fx=k, fy=k, interpolation=cv2.INTER_AREA)
+            sharp = cv2.Laplacian(cv2.cvtColor(small, cv2.COLOR_BGR2GRAY), cv2.CV_32F).var()
+            fire = flame_mask(small[:, :, ::-1].copy())
+            rows = np.nonzero(fire.any(axis=1))[0]
+            # Fire at the bottom edge leaves no room to draw the firebreak.
+            room = 1.0 if rows.size == 0 else min(1.0, 0.2 + 4.0 * (1 - rows[-1] / fire.shape[0]))
+            score = (1.0 + float(fire.sum())) * room * float(np.sqrt(sharp))
+            if score > best_score:
+                best, best_score = idx, score
+        cap.release()
+        return best
 
+    @staticmethod
+    def _frame_motions(video_path: Path, max_frames: int) -> List[np.ndarray]:
+        """Cumulative transforms mapping frame 0 to each frame (camera motion)."""
+        cap = cv2.VideoCapture(str(video_path))
+        motions: List[np.ndarray] = []
+        prev = None
+        while len(motions) < max_frames:
+            ok, frame = cap.read()
+            if not ok:
+                break
+            k = 640.0 / max(frame.shape[:2])
+            small = cv2.resize(frame, None, fx=k, fy=k, interpolation=cv2.INTER_AREA)
+            gray = cv2.cvtColor(small, cv2.COLOR_BGR2GRAY)
+            step = np.eye(3)
+            if prev is not None:
+                # Only track ground features: smoke and flames move on their own.
+                pts = cv2.goodFeaturesToTrack(prev[0], 500, 0.01, 6, mask=prev[1])
+                if pts is not None and len(pts) >= 12:
+                    nxt, status, _ = cv2.calcOpticalFlowPyrLK(prev[0], gray, pts, None, winSize=(25, 25), maxLevel=4)
+                    good = status.ravel() == 1
+                    if good.sum() >= 12:
+                        found, _ = cv2.findHomography(pts[good], nxt[good], cv2.RANSAC, 2.0)
+                        step = found if found is not None else step
+            # Express the step in full-resolution pixels.
+            scale = np.diag([k, k, 1.0])
+            step = np.linalg.inv(scale) @ step @ scale
+            motions.append(step @ motions[-1] if motions else step)
+            prev = (gray, ground_mask(small[:, :, ::-1].copy()))
+        cap.release()
+        return motions
+
+    def annotate_video(
+        self,
+        input_video_path: Path,
+        output_video_path: Path,
+        firebreak: Optional[Dict[str, Any]] = None,
+        keyframe: int = 0,
+        keyframe_width: Optional[int] = None,
+    ) -> Path:
+        """Burn fire outlines and a ground-locked firebreak into the video.
+
+        The firebreak is planned once on ``keyframe`` and then follows the ground
+        using the estimated camera motion, so it does not drift while panning.
+        """
         cap = cv2.VideoCapture(str(input_video_path))
         if not cap.isOpened():
             return input_video_path
-
         fps = cap.get(cv2.CAP_PROP_FPS) or 10.0
         w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
         h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+        max_frames = int(fps * MAX_ANNOTATED_SECONDS)
+
+        motions: List[np.ndarray] = []
+        line: List[Any] = []
+        to_start = np.eye(3)
+        if firebreak:
+            motions = self._frame_motions(input_video_path, max_frames)
+            ratio = w / float(keyframe_width or w)
+            traj = firebreak["trajectory"]
+            points = traj["polyline"] + [traj["threat_origin"]]
+            line = [(p["x"] * ratio, p["y"] * ratio) for p in points]
+            metrics = firebreak["metrics"]
+            band = metrics["recommended_width_meters"] / firebreak["meters_per_pixel"] * ratio
+            if motions:
+                to_start = np.linalg.inv(motions[min(keyframe, len(motions) - 1)])
 
         temp_raw = output_video_path.parent / f"temp_{output_video_path.name}"
-        fourcc = cv2.VideoWriter_fourcc(*"mp4v")
-        out = cv2.VideoWriter(str(temp_raw), fourcc, fps, (w, h))
-
-        while True:
-            ret, frame = cap.read()
-            if not ret:
+        out = cv2.VideoWriter(str(temp_raw), cv2.VideoWriter_fourcc(*"mp4v"), fps, (w, h))
+        for idx in range(max_frames):
+            ok, frame = cap.read()
+            if not ok:
                 break
-            rgb = frame[:, :, ::-1]
-            dets = self.detect_cv(rgb)
-
-            for det in dets:
-                bbox = det["bbox"]
-                x0, y0 = bbox["x"], bbox["y"]
-                x1, y1 = x0 + bbox["w"], y0 + bbox["h"]
-
-                if det["class_name"] == "hotspot":
-                    color = (40, 40, 240)  # Bright Red in BGR
-                    label = f"TITIK API {int(det['confidence']*100)}%"
-                    tag_w = 115
-                else:
-                    color = (240, 180, 50)  # Light Sky Blue in BGR
-                    label = f"KEPULAN ASAP {int(det['confidence']*100)}%"
-                    tag_w = 145
-
-                cv2.rectangle(frame, (x0, y0), (x1, y1), color, 2)
-                tag_y0 = max(0, y0 - 18)
-                cv2.rectangle(frame, (x0, tag_y0), (x0 + tag_w, y0), color, -1)
-                cv2.putText(
-                    frame, label, (x0 + 4, y0 - 4),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.42, (255, 255, 255), 1, cv2.LINE_AA
-                )
-
-            out.write(frame)
-
+            rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            img = Image.fromarray(rgb)
+            empty = np.zeros((h, w), dtype=bool)  # Only fire is outlined per frame
+            fires = self.detect_cv(rgb, SceneMasks(fire=flame_mask(rgb), smoke=empty, fuel=empty))
+            occupied: List[Any] = []
+            draw_detections(img, fires, occupied, show_tags=False)
+            if line and idx < len(motions):
+                moved = transform_points(line, motions[idx] @ to_start)
+                if all(abs(x) < 4 * w and abs(y) < 4 * h for x, y in moved):
+                    draw_firebreak(
+                        img, moved[:-1], moved[-1], metrics["cutting_length_meters"],
+                        metrics["recommended_width_meters"], band, occupied,
+                    )
+            draw_detections(img, [{**d, "contour": []} for d in fires[:1]], occupied)
+            out.write(cv2.cvtColor(np.asarray(img), cv2.COLOR_RGB2BGR))
         cap.release()
         out.release()
 
-        # Fast transcode with ffmpeg to ensure web-compatible H.264
+        # Transcode to web-compatible H.264; keep the raw file if ffmpeg is missing.
         try:
             subprocess.run(
                 [
-                    "ffmpeg", "-y", "-i", str(temp_raw),
-                    "-c:v", "libx264", "-pix_fmt", "yuv420p",
-                    "-movflags", "+faststart", str(output_video_path)
+                    "ffmpeg", "-y", "-i", str(temp_raw), "-c:v", "libx264", "-preset", "veryfast",
+                    "-pix_fmt", "yuv420p", "-movflags", "+faststart", str(output_video_path),
                 ],
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-                timeout=30,
+                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=120, check=True,
             )
-        except Exception:
-            if temp_raw.exists():
-                shutil.copy(temp_raw, output_video_path)
-
-        if temp_raw.exists():
             temp_raw.unlink(missing_ok=True)
-
+        except (OSError, subprocess.SubprocessError):
+            temp_raw.replace(output_video_path)
         return output_video_path
 
 
